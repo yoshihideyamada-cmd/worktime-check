@@ -76,8 +76,7 @@ input[type="time"]{
     appearance:none;
 }
 
-input[type="number"],
-input[type="text"]{
+input[type="number"]{
     width:100%;
     padding:9px;
     font-size:14px;
@@ -192,6 +191,12 @@ button:active{
     margin-top:8px;
 }
 
+.durationNumberRow{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+}
+
 .converterNote{
     margin-top:8px;
     line-height:1.5;
@@ -278,11 +283,14 @@ button:active{
     <div class="converterRow">
         <div>
             <label for="decimalHours">小数時間</label>
-            <input type="number" id="decimalHours" step="0.01" min="0" placeholder="0.75" oninput="convertFromDecimal()">
+            <input type="number" id="decimalHours" step="0.25" min="0" placeholder="0.75" oninput="convertFromDecimal()">
         </div>
         <div>
-            <label for="durationText">時間・分</label>
-            <input type="text" id="durationText" placeholder="0時間45分" oninput="convertFromDuration()">
+            <label>時間・分</label>
+            <div class="durationNumberRow">
+                <input type="number" id="durationHours" step="1" min="0" placeholder="0" aria-label="時間" oninput="convertFromDuration()">
+                <input type="number" id="durationMinutes" step="15" min="0" max="59" placeholder="45" aria-label="分" oninput="convertFromDuration()">
+            </div>
         </div>
     </div>
 
@@ -510,45 +518,40 @@ function calculateOvertime(){
 
 function convertFromDecimal(){
     const decimalInput = document.getElementById("decimalHours");
-    const durationInput = document.getElementById("durationText");
+    const hoursInput = document.getElementById("durationHours");
+    const minutesInput = document.getElementById("durationMinutes");
     const hours = Number(decimalInput.value);
 
     if(decimalInput.value === "" || Number.isNaN(hours) || hours < 0){
-        durationInput.value = "";
+        hoursInput.value = "";
+        minutesInput.value = "";
         return;
     }
 
-    durationInput.value = fmtDuration(Math.round(hours * 60));
-}
-
-function parseDurationText(text){
-    const trimmed = text.trim();
-    if(!trimmed) return null;
-
-    const hourMatch = trimmed.match(/(\d+(?:\.\d+)?)\s*時間/);
-    const minuteMatch = trimmed.match(/(\d+)\s*分/);
-
-    if(!hourMatch && !minuteMatch) return null;
-
-    const hours = hourMatch ? Number(hourMatch[1]) : 0;
-    const minutes = minuteMatch ? Number(minuteMatch[1]) : 0;
-
-    if(Number.isNaN(hours) || Number.isNaN(minutes)) return null;
-
-    return Math.round(hours * 60 + minutes);
+    const totalMinutes = Math.round(hours * 60);
+    hoursInput.value = Math.floor(totalMinutes / 60);
+    minutesInput.value = totalMinutes % 60;
 }
 
 function convertFromDuration(){
     const decimalInput = document.getElementById("decimalHours");
-    const durationInput = document.getElementById("durationText");
-    const minutes = parseDurationText(durationInput.value);
+    const hoursInput = document.getElementById("durationHours");
+    const minutesInput = document.getElementById("durationMinutes");
 
-    if(minutes === null || minutes < 0){
+    if(hoursInput.value === "" && minutesInput.value === ""){
         decimalInput.value = "";
         return;
     }
 
-    decimalInput.value = (minutes / 60).toFixed(2);
+    const hours = hoursInput.value === "" ? 0 : Number(hoursInput.value);
+    const minutes = minutesInput.value === "" ? 0 : Number(minutesInput.value);
+
+    if(Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || minutes < 0){
+        decimalInput.value = "";
+        return;
+    }
+
+    decimalInput.value = ((hours * 60 + minutes) / 60).toFixed(2);
 }
 
 if('serviceWorker' in navigator){
