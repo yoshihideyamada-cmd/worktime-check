@@ -76,6 +76,16 @@ input[type="time"]{
     appearance:none;
 }
 
+input[type="number"],
+input[type="text"]{
+    width:100%;
+    padding:9px;
+    font-size:14px;
+    border:1px solid #89d8ee;
+    border-radius:8px;
+    background:#f3fcff;
+}
+
 .inputRow{
     display:grid;
     grid-template-columns:1fr 1fr;
@@ -148,6 +158,39 @@ button:active{
     color:#444;
 }
 
+.converter{
+    border-top:1px solid #bdefff;
+    margin-top:24px;
+    padding-top:18px;
+    color:#0786a8;
+    font-size:12px;
+}
+
+.converter h2{
+    color:#0786a8;
+    font-size:15px;
+    margin:0 0 10px;
+}
+
+.converter label{
+    color:#0786a8;
+    font-size:12px;
+    margin-top:8px;
+}
+
+.converterMark{
+    text-align:center;
+    font-size:18px;
+    font-weight:bold;
+    color:#16a6c9;
+    padding-top:30px;
+}
+
+.converterNote{
+    margin-top:8px;
+    line-height:1.5;
+}
+
 .info{
     margin-top:24px;
     border-top:1px solid #ccc;
@@ -173,6 +216,7 @@ button:active{
     body{ padding:12px; }
     .card{ padding:18px; }
     .inputRow{ grid-template-columns:1fr; gap:0; }
+    .converterMark{ padding-top:6px; }
 }
 
 </style>
@@ -219,6 +263,26 @@ button:active{
     <div class="result" id="overtimeResult"></div>
     <div class="note">
         開始時間は15分切り上げ、終了時間は15分切り捨てで計算します。終了時間が開始時間より早い場合は日またぎとして扱います。
+    </div>
+</section>
+
+<section class="converter">
+    <h2>時間表記変換</h2>
+
+    <div class="inputRow">
+        <div>
+            <label for="decimalHours">小数時間</label>
+            <input type="number" id="decimalHours" step="0.01" min="0" placeholder="0.75" oninput="convertFromDecimal()">
+        </div>
+        <div class="converterMark">⇔</div>
+        <div>
+            <label for="durationText">時間・分</label>
+            <input type="text" id="durationText" placeholder="0時間45分" oninput="convertFromDuration()">
+        </div>
+    </div>
+
+    <div class="converterNote">
+        例: 0.75時間 ⇔ 0時間45分
     </div>
 </section>
 
@@ -435,6 +499,49 @@ function calculateOvertime(){
             休憩時間のみ差し引き: ${fmtDuration(res.work)}（${fmtHours(res.work)}）
         </div>
     `;
+}
+
+function convertFromDecimal(){
+    const decimalInput = document.getElementById("decimalHours");
+    const durationInput = document.getElementById("durationText");
+    const hours = Number(decimalInput.value);
+
+    if(decimalInput.value === "" || Number.isNaN(hours) || hours < 0){
+        durationInput.value = "";
+        return;
+    }
+
+    durationInput.value = fmtDuration(Math.round(hours * 60));
+}
+
+function parseDurationText(text){
+    const trimmed = text.trim();
+    if(!trimmed) return null;
+
+    const hourMatch = trimmed.match(/(\d+(?:\.\d+)?)\s*時間/);
+    const minuteMatch = trimmed.match(/(\d+)\s*分/);
+
+    if(!hourMatch && !minuteMatch) return null;
+
+    const hours = hourMatch ? Number(hourMatch[1]) : 0;
+    const minutes = minuteMatch ? Number(minuteMatch[1]) : 0;
+
+    if(Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+
+    return Math.round(hours * 60 + minutes);
+}
+
+function convertFromDuration(){
+    const decimalInput = document.getElementById("decimalHours");
+    const durationInput = document.getElementById("durationText");
+    const minutes = parseDurationText(durationInput.value);
+
+    if(minutes === null || minutes < 0){
+        decimalInput.value = "";
+        return;
+    }
+
+    decimalInput.value = (minutes / 60).toFixed(2);
 }
 
 if('serviceWorker' in navigator){
