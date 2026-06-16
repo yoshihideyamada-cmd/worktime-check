@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>勤務時間確認くん</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#d60000">
+
+<style>
+
+*{ box-sizing:border-box; }
+
+body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:#f5f5f5;
+    margin:0;
+    padding:20px;
+    -webkit-text-size-adjust:100%;
+}
+
+.card{
+    max-width:600px;
+    margin:auto;
+    background:#fff;
+    border-radius:16px;
+    padding:24px;
+    box-shadow:0 4px 12px rgba(0,0,0,.1);
+    overflow:hidden;
+}
+
+h1{
+    text-align:center;
+    margin-bottom:10px;
+}
+
+.subtitle{
+    text-align:center;
+    color:#666;
+    font-size:14px;
+    margin-bottom:24px;
+}
+
+label{
+    display:block;
+    font-weight:bold;
+    margin-top:10px;
+}
+
+input[type="time"]{
+    width:100%;
+    padding:12px;
+    font-size:24px;
+    border:1px solid #ccc;
+    border-radius:8px;
+    -webkit-appearance:none;
+    appearance:none;
+}
+
+button{
+    width:100%;
+    padding:14px;
+    margin-top:16px;
+    font-size:20px;
+    border:none;
+    border-radius:8px;
+    background:#d60000;
+    color:#fff;
+}
+
+.result{
+    text-align:center;
+    margin-top:30px;
+}
+
+/* 横並び */
+.timeRow{
+    display:flex;
+    justify-content:center;
+    align-items:baseline;
+    gap:10px;
+    margin-bottom:10px;
+}
+
+/* 開始（オレンジ） */
+.startTimeRounded{
+    font-size:28px;
+    color:#ff8c00;
+    font-weight:bold;
+}
+
+/* 7.75h（赤） */
+.finish775{
+    font-size:38px;
+    font-weight:bold;
+    color:#d60000;
+}
+
+.warning{
+    color:#d60000;
+    font-weight:bold;
+}
+
+.info{
+    margin-top:30px;
+    border-top:1px solid #ccc;
+    padding-top:20px;
+    line-height:1.7;
+}
+
+.ruleTitle{
+    font-weight:bold;
+    margin-top:10px;
+}
+
+.footer{
+    margin-top:30px;
+    border-top:1px solid #eee;
+    text-align:center;
+    font-size:12px;
+    color:#888;
+    padding-top:15px;
+}
+
+</style>
+</head>
+
+<body oncontextmenu="return false">
+
+<div class="card">
+
+<h1>勤務時間確認くん</h1>
+
+<div class="subtitle">
+7.75h到達時刻確認ツール
+</div>
+
+<label>出勤時間</label>
+<input type="time" id="startTime">
+
+<button onclick="calculate()">計算</button>
+
+<div class="result" id="result"></div>
+<div class="info" id="info"></div>
+
+<div class="footer">
+修正依頼は山田まで。<br>
+最終更新:26/06/16
+</div>
+
+</div>
+
+<script>
+
+const WORK_775 = 465;
+
+const scheduleA = [
+["08:45","09:00"],
+["12:15","13:00"],
+["17:45","18:00"],
+["21:00","21:15"],
+["01:00","01:15"],
+["03:15","03:30"],
+["05:30","05:45"],
+["07:00","07:15"]
+];
+
+const scheduleB = [
+["17:45","18:30"],
+["21:00","21:15"],
+["23:00","23:15"],
+["01:00","01:15"],
+["03:15","03:30"],
+["05:30","05:45"],
+["07:00","07:15"],
+["08:45","09:00"]
+];
+
+function toMin(t){
+    const [h,m]=t.split(":").map(Number);
+    return h*60+m;
+}
+
+function fmt(m){
+    m=(m%1440+1440)%1440;
+    return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
+}
+
+function roundUp15(min){
+    return Math.ceil(min / 15) * 15;
+}
+
+function calc(start,target,breaks){
+
+    let work=0;
+    let cur=start;
+
+    let usedBreaks=[];
+
+    while(work<target){
+
+        let next=null;
+
+        for(let d=0;d<3;d++){
+            for(const b of breaks){
+
+                let s=toMin(b[0])+d*1440;
+                let e=toMin(b[1])+d*1440;
+
+                if(e<=s)e+=1440;
+
+                if(s>=cur){
+                    if(!next || s<next.s){
+                        next={s,e,break:b};
+                    }
+                }
+            }
+        }
+
+        if(!next){
+            cur+=target-work;
+            break;
+        }
+
+        let usable=next.s-cur;
+
+        if(work+usable>=target){
+            cur+=target-work;
+            work=target;
+        }else{
+            work+=usable;
+            usedBreaks.push(next.break);
+            cur=next.e;
+        }
+    }
+
+    return { time: cur, usedBreaks };
+}
+
+function calculate(){
+
+    let start=document.getElementById("startTime").value;
+    if(!start)return;
+
+    let sm=toMin(start);
+
+    sm = roundUp15(sm);
+
+    const useA = sm < 735;
+    const breaks = useA ? scheduleA : scheduleB;
+
+    const res775 = calc(sm,WORK_775,breaks);
+    const f775 = res775.time;
+
+    document.getElementById("result").innerHTML=`
+        <div>本日の7.75h</div>
+
+        <div class="timeRow">
+            <div class="startTimeRounded">${fmt(sm)} ～</div>
+            <div class="finish775">${fmt(f775)}</div>
+        </div>
+
+        <div class="warning">⚠ ${fmt(f775)}以降は代付対象</div>
+    `;
+
+    const pattern = useA
+        ? "パターンA（00:00～12:14出勤）"
+        : "パターンB（12:15～23:59出勤）";
+
+    document.getElementById("info").innerHTML=`
+        <div class="ruleTitle">適用ルール</div>
+        ${pattern}
+
+        <br><br>
+
+        <div class="ruleTitle">実際に使用した休憩</div>
+        ${res775.usedBreaks.length
+            ? res775.usedBreaks.map(b=>b[0]+" ～ "+b[1]).join("<br>")
+            : "休憩なし"}
+    `;
+}
+
+if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('service-worker.js');
+}
+
+</script>
+
+</body>
+</html>
