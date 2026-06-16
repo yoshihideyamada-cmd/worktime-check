@@ -178,12 +178,18 @@ button:active{
     margin-top:8px;
 }
 
-.converterMark{
+.converterRow{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+}
+
+.converterSwitch{
     text-align:center;
-    font-size:18px;
+    font-size:12px;
     font-weight:bold;
     color:#16a6c9;
-    padding-top:30px;
+    margin-top:8px;
 }
 
 .converterNote{
@@ -216,7 +222,7 @@ button:active{
     body{ padding:12px; }
     .card{ padding:18px; }
     .inputRow{ grid-template-columns:1fr; gap:0; }
-    .converterMark{ padding-top:6px; }
+    .converterRow{ grid-template-columns:1fr; gap:0; }
 }
 
 </style>
@@ -269,17 +275,18 @@ button:active{
 <section class="converter">
     <h2>時間表記変換</h2>
 
-    <div class="inputRow">
+    <div class="converterRow">
         <div>
             <label for="decimalHours">小数時間</label>
             <input type="number" id="decimalHours" step="0.01" min="0" placeholder="0.75" oninput="convertFromDecimal()">
         </div>
-        <div class="converterMark">⇔</div>
         <div>
             <label for="durationText">時間・分</label>
             <input type="text" id="durationText" placeholder="0時間45分" oninput="convertFromDuration()">
         </div>
     </div>
+
+    <div class="converterSwitch">⇔ 相互変換</div>
 
     <div class="converterNote">
         例: 0.75時間 ⇔ 0時間45分
