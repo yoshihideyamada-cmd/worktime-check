@@ -33,7 +33,12 @@ body{
 
 h1{
     text-align:center;
-    margin-bottom:10px;
+    margin:0 0 10px;
+}
+
+h2{
+    font-size:20px;
+    margin:0 0 12px;
 }
 
 .subtitle{
@@ -41,6 +46,18 @@ h1{
     color:#666;
     font-size:14px;
     margin-bottom:24px;
+}
+
+.tool{
+    border-top:1px solid #e5e5e5;
+    padding-top:22px;
+    margin-top:24px;
+}
+
+.tool:first-of-type{
+    border-top:0;
+    padding-top:0;
+    margin-top:0;
 }
 
 label{
@@ -59,6 +76,12 @@ input[type="time"]{
     appearance:none;
 }
 
+.inputRow{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+}
+
 button{
     width:100%;
     padding:14px;
@@ -68,14 +91,18 @@ button{
     border-radius:8px;
     background:#d60000;
     color:#fff;
+    cursor:pointer;
+}
+
+button:active{
+    transform:translateY(1px);
 }
 
 .result{
     text-align:center;
-    margin-top:30px;
+    margin-top:24px;
 }
 
-/* 横並び */
 .timeRow{
     display:flex;
     justify-content:center;
@@ -84,15 +111,14 @@ button{
     margin-bottom:10px;
 }
 
-/* 開始（オレンジ） */
 .startTimeRounded{
     font-size:28px;
     color:#ff8c00;
     font-weight:bold;
 }
 
-/* 7.75h（赤） */
-.finish775{
+.finish775,
+.overtimeValue{
     font-size:38px;
     font-weight:bold;
     color:#d60000;
@@ -103,8 +129,15 @@ button{
     font-weight:bold;
 }
 
+.note{
+    color:#666;
+    font-size:13px;
+    line-height:1.6;
+    margin-top:10px;
+}
+
 .info{
-    margin-top:30px;
+    margin-top:24px;
     border-top:1px solid #ccc;
     padding-top:20px;
     line-height:1.7;
@@ -124,6 +157,12 @@ button{
     padding-top:15px;
 }
 
+@media (max-width:520px){
+    body{ padding:12px; }
+    .card{ padding:18px; }
+    .inputRow{ grid-template-columns:1fr; gap:0; }
+}
+
 </style>
 </head>
 
@@ -134,16 +173,42 @@ button{
 <h1>勤務時間確認くん</h1>
 
 <div class="subtitle">
-7.75h到達時刻確認ツール
+7.75h到達時刻と残業時間を確認するツール
 </div>
 
-<label>出勤時間</label>
-<input type="time" id="startTime">
+<section class="tool">
+    <h2>7.75h終了時刻</h2>
 
-<button onclick="calculate()">計算</button>
+    <label for="startTime">出勤時間</label>
+    <input type="time" id="startTime">
 
-<div class="result" id="result"></div>
-<div class="info" id="info"></div>
+    <button onclick="calculateFinishTime()">計算</button>
+
+    <div class="result" id="result"></div>
+    <div class="info" id="info"></div>
+</section>
+
+<section class="tool">
+    <h2>残業時間計算くん</h2>
+
+    <div class="inputRow">
+        <div>
+            <label for="overtimeStart">開始時間</label>
+            <input type="time" id="overtimeStart">
+        </div>
+        <div>
+            <label for="overtimeEnd">終了時間</label>
+            <input type="time" id="overtimeEnd">
+        </div>
+    </div>
+
+    <button onclick="calculateOvertime()">残業時間を計算</button>
+
+    <div class="result" id="overtimeResult"></div>
+    <div class="note">
+        開始時間は15分切り上げ、終了時間は15分切り捨てで計算します。終了時間が開始時間より早い場合は日またぎとして扱います。
+    </div>
+</section>
 
 <div class="footer">
 修正依頼は山田まで。<br>
@@ -157,119 +222,165 @@ button{
 const WORK_775 = 465;
 
 const scheduleA = [
-["08:45","09:00"],
-["12:15","13:00"],
-["17:45","18:00"],
-["21:00","21:15"],
-["01:00","01:15"],
-["03:15","03:30"],
-["05:30","05:45"],
-["07:00","07:15"]
+    ["08:45","09:00"],
+    ["12:15","13:00"],
+    ["17:45","18:00"],
+    ["21:00","21:15"],
+    ["01:00","01:15"],
+    ["03:15","03:30"],
+    ["05:30","05:45"],
+    ["07:00","07:15"]
 ];
 
 const scheduleB = [
-["17:45","18:30"],
-["21:00","21:15"],
-["23:00","23:15"],
-["01:00","01:15"],
-["03:15","03:30"],
-["05:30","05:45"],
-["07:00","07:15"],
-["08:45","09:00"]
+    ["17:45","18:30"],
+    ["21:00","21:15"],
+    ["23:00","23:15"],
+    ["01:00","01:15"],
+    ["03:15","03:30"],
+    ["05:30","05:45"],
+    ["07:00","07:15"],
+    ["08:45","09:00"]
 ];
 
 function toMin(t){
-    const [h,m]=t.split(":").map(Number);
-    return h*60+m;
+    const [h,m] = t.split(":").map(Number);
+    return h * 60 + m;
 }
 
 function fmt(m){
-    m=(m%1440+1440)%1440;
-    return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
+    m = (m % 1440 + 1440) % 1440;
+    return String(Math.floor(m / 60)).padStart(2,"0") + ":" + String(m % 60).padStart(2,"0");
+}
+
+function fmtDuration(min){
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return `${h}時間${String(m).padStart(2,"0")}分`;
+}
+
+function fmtHours(min){
+    return (min / 60).toFixed(2) + "h";
 }
 
 function roundUp15(min){
     return Math.ceil(min / 15) * 15;
 }
 
+function roundDown15(min){
+    return Math.floor(min / 15) * 15;
+}
+
+function chooseBreaks(startMin){
+    return startMin < 735 ? scheduleA : scheduleB;
+}
+
+function getBreakWindows(breaks, start, end){
+    const windows = [];
+    const seen = new Set();
+
+    for(let d = -1; d <= 2; d++){
+        for(const b of breaks){
+            let s = toMin(b[0]) + d * 1440;
+            let e = toMin(b[1]) + d * 1440;
+
+            if(e <= s) e += 1440;
+            while(e <= start){
+                s += 1440;
+                e += 1440;
+            }
+
+            if(s < end && e > start){
+                const key = `${s}-${e}`;
+                if(seen.has(key)) continue;
+                seen.add(key);
+                windows.push({ s, e, label:b });
+            }
+        }
+    }
+
+    return windows.sort((a,b) => a.s - b.s);
+}
+
 function calc(start,target,breaks){
+    let work = 0;
+    let cur = start;
+    let usedBreaks = [];
 
-    let work=0;
-    let cur=start;
+    while(work < target){
+        let next = null;
 
-    let usedBreaks=[];
-
-    while(work<target){
-
-        let next=null;
-
-        for(let d=0;d<3;d++){
-            for(const b of breaks){
-
-                let s=toMin(b[0])+d*1440;
-                let e=toMin(b[1])+d*1440;
-
-                if(e<=s)e+=1440;
-
-                if(s>=cur){
-                    if(!next || s<next.s){
-                        next={s,e,break:b};
-                    }
-                }
+        for(const b of getBreakWindows(breaks, cur, cur + 2880)){
+            if(b.s >= cur && (!next || b.s < next.s)){
+                next = b;
             }
         }
 
         if(!next){
-            cur+=target-work;
+            cur += target - work;
             break;
         }
 
-        let usable=next.s-cur;
+        const usable = next.s - cur;
 
-        if(work+usable>=target){
-            cur+=target-work;
-            work=target;
+        if(work + usable >= target){
+            cur += target - work;
+            work = target;
         }else{
-            work+=usable;
-            usedBreaks.push(next.break);
-            cur=next.e;
+            work += usable;
+            usedBreaks.push(next.label);
+            cur = next.e;
         }
     }
 
     return { time: cur, usedBreaks };
 }
 
-function calculate(){
+function calcWorkedMinutes(start,end,breaks){
+    let finish = end;
+    if(finish <= start) finish += 1440;
 
-    let start=document.getElementById("startTime").value;
-    if(!start)return;
+    let work = finish - start;
+    const usedBreaks = [];
 
-    let sm=toMin(start);
+    for(const b of getBreakWindows(breaks, start, finish)){
+        const overlap = Math.max(0, Math.min(finish, b.e) - Math.max(start, b.s));
+        if(overlap > 0){
+            work -= overlap;
+            usedBreaks.push(b.label);
+        }
+    }
 
-    sm = roundUp15(sm);
+    return { work:Math.max(0, work), finish, usedBreaks };
+}
 
-    const useA = sm < 735;
-    const breaks = useA ? scheduleA : scheduleB;
+function calculateFinishTime(){
+    let start = document.getElementById("startTime").value;
+    if(!start) return;
 
-    const res775 = calc(sm,WORK_775,breaks);
+    let sm = roundUp15(toMin(start));
+    const breaks = chooseBreaks(sm);
+    const useA = breaks === scheduleA;
+
+    const res775 = calc(sm, WORK_775, breaks);
     const f775 = res775.time;
 
-    document.getElementById("result").innerHTML=`
+    document.getElementById("result").innerHTML = `
         <div>本日の7.75h</div>
 
         <div class="timeRow">
-            <div class="startTimeRounded">${fmt(sm)} ～</div>
+            <div class="startTimeRounded">${fmt(sm)} →</div>
             <div class="finish775">${fmt(f775)}</div>
         </div>
 
-        <div class="warning">⚠ ${fmt(f775)}以降は代付対象</div>
+        <div class="warning">※ ${fmt(f775)}以降は残業対象</div>
     `;
 
     const pattern = useA
-        ? "パターンA（00:00～12:14出勤）"
+        ? "パターンA（0:00～12:14出勤）"
         : "パターンB（12:15～23:59出勤）";
 
-    document.getElementById("info").innerHTML=`
+    document.getElementById("info").innerHTML = `
         <div class="ruleTitle">適用ルール</div>
         ${pattern}
 
@@ -277,8 +388,36 @@ function calculate(){
 
         <div class="ruleTitle">実際に使用した休憩</div>
         ${res775.usedBreaks.length
-            ? res775.usedBreaks.map(b=>b[0]+" ～ "+b[1]).join("<br>")
+            ? res775.usedBreaks.map(b => b[0] + " ～ " + b[1]).join("<br>")
             : "休憩なし"}
+    `;
+}
+
+function calculateOvertime(){
+    const start = document.getElementById("overtimeStart").value;
+    const end = document.getElementById("overtimeEnd").value;
+
+    if(!start || !end) return;
+
+    const sm = roundUp15(toMin(start));
+    const em = roundDown15(toMin(end));
+    const breaks = chooseBreaks(sm);
+    const res = calcWorkedMinutes(sm, em, breaks);
+    const overtime = Math.max(0, res.work - WORK_775);
+
+    document.getElementById("overtimeResult").innerHTML = `
+        <div>実働 ${fmtDuration(res.work)}</div>
+        <div class="timeRow">
+            <div class="startTimeRounded">${fmt(sm)} → ${fmt(res.finish)}</div>
+        </div>
+        <div>残業時間</div>
+        <div class="overtimeValue">${fmtDuration(overtime)}（${fmtHours(overtime)}）</div>
+        <div class="note">
+            差し引いた休憩:
+            ${res.usedBreaks.length
+                ? res.usedBreaks.map(b => b[0] + " ～ " + b[1]).join("、")
+                : "なし"}
+        </div>
     `;
 }
 
