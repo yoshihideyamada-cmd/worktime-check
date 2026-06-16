@@ -136,6 +136,18 @@ button:active{
     margin-top:10px;
 }
 
+.subResult{
+    color:#666;
+    font-size:13px;
+    line-height:1.6;
+    margin-top:8px;
+}
+
+.subResultTitle{
+    font-weight:bold;
+    color:#444;
+}
+
 .info{
     margin-top:24px;
     border-top:1px solid #ccc;
@@ -417,6 +429,10 @@ function calculateOvertime(){
             ${res.usedBreaks.length
                 ? res.usedBreaks.map(b => b[0] + " ～ " + b[1]).join("、")
                 : "なし"}
+        </div>
+        <div class="subResult">
+            <span class="subResultTitle">休日代無の場合</span><br>
+            休憩時間のみ差し引き: ${fmtDuration(res.work)}（${fmtHours(res.work)}）
         </div>
     `;
 }
