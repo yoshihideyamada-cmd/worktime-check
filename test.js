@@ -1,1 +1,0 @@
-alert('GitHub JS 読み込み成功');
