@@ -14,47 +14,67 @@ function c(s,e,p){
  for(i=0;i<a.length;)n-=o(s,e,+a[i++],+a[i++]);
  return n;
 }
-function show(title,u){
+function hours(minutes){
+ return (minutes/60).toFixed(2)+'h';
+}
+function show(title,u,details){
  var rem=44.75-u/60;
  var old=document.getElementById('__zangyo_result');
  if(old)old.remove();
 
  var box=document.createElement('div');
  var close=document.createElement('button');
- var a=document.createElement('div');
- var b=document.createElement('div');
- var c=document.createElement('div');
- var d=document.createElement('div');
+ var heading=document.createElement('div');
+ var total=document.createElement('div');
+ var remaining=document.createElement('div');
+ var detailButton=document.createElement('button');
+ var detailBox=document.createElement('div');
+ var notice=document.createElement('div');
 
  box.id='__zangyo_result';
- box.style='position:fixed;top:12px;right:12px;z-index:999999;background:white;color:black;border:2px solid #333;padding:14px 16px;width:390px;max-width:92vw;box-shadow:0 4px 16px #0005;font:15px Meiryo,sans-serif;line-height:1.7';
+ box.style='position:fixed;top:12px;right:12px;z-index:999999;background:white;color:black;border:2px solid #333;padding:14px 16px;width:430px;max-width:92vw;max-height:88vh;overflow:auto;box-shadow:0 4px 16px #0005;font:15px Meiryo,sans-serif;line-height:1.7';
 
  close.textContent='閉じる';
  close.style='float:right';
  close.onclick=function(){box.remove()};
 
- a.textContent='【'+title+' 残業チェック】';
- a.style='font-weight:700;font-size:17px;margin-bottom:8px';
+ heading.textContent='【'+title+' 残業チェック】';
+ heading.style='font-weight:700;font-size:17px;margin-bottom:8px';
 
- b.textContent='残業合計：'+(u/60).toFixed(2)+'h';
+ total.textContent='残業合計：'+hours(u);
 
- c.textContent='45h超リミット＝44.75hまで残り：'+rem.toFixed(2)+'h';
- if(rem<10)c.style='color:#c00000;font-weight:700';
+ remaining.textContent='45h超リミット＝44.75hまで残り：'+rem.toFixed(2)+'h';
+ if(rem<10)remaining.style='color:#c00000;font-weight:700';
 
- d.textContent='ノリで作成したので間違っているかもしれません。\nややこしい勤務形態には対応できていません。\n苦情・修正依頼は気分がいいときに受け付けます。山田';
- d.style='white-space:pre-line;margin-top:12px';
+ detailButton.textContent='内訳';
+ detailButton.style='margin-top:10px;padding:4px 14px';
+
+ detailBox.textContent=details.length?details.join('\n'):'残業・調整はありません。';
+ detailBox.style='display:none;white-space:pre-line;margin-top:8px;padding:8px;background:#f5f5f5;border:1px solid #ccc;font-size:13px';
+
+ detailButton.onclick=function(){
+  var open=detailBox.style.display!=='none';
+  detailBox.style.display=open?'none':'block';
+  detailButton.textContent=open?'内訳':'内訳を閉じる';
+ };
+
+ notice.textContent='ノリで作成したので間違っているかもしれません。\nややこしい勤務形態には対応できていません。\n苦情・修正依頼は気分がいいときに受け付けます。山田';
+ notice.style='white-space:pre-line;margin-top:12px';
 
  box.appendChild(close);
- box.appendChild(a);
- box.appendChild(b);
- box.appendChild(c);
- box.appendChild(d);
+ box.appendChild(heading);
+ box.appendChild(total);
+ box.appendChild(remaining);
+ box.appendChild(detailButton);
+ box.appendChild(detailBox);
+ box.appendChild(notice);
  document.body.appendChild(box);
 }
 
 try{
  var R=document.getElementsByTagName('table')[2].rows;
- var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait;
+ var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub;
+ var details=[];
 
  for(i=1;i<R.length;i++){
   v=R[i].cells;
@@ -62,9 +82,10 @@ try{
    j=g(v[2]);
 
    if(/振替休日/.test(j)){
-    m=Math.min(last,465);
-    u-=m;
-    last-=m;
+    sub=Math.min(last,465);
+    u-=sub;
+    last-=sub;
+    if(sub!==0)details.push(d+'　振替休日調整：-'+hours(sub));
     continue;
    }
 
@@ -92,11 +113,12 @@ try{
    }
 
    u+=m;
+   if(m!==0)details.push(d+'　残業：'+hours(m));
    if(m>0)last=m;
   }
  }
 
- show('社員用',u);
+ show('社員用',u,details);
 }catch(e){
  alert('エラー:'+e.message);
 }
