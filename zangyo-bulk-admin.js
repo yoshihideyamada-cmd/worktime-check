@@ -206,6 +206,14 @@ function clickExact(selector,text,root){
  }
  return false;
 }
+function clickDepartmentByName(name){
+ var anchors=document.querySelectorAll('li[class*="jstree-node"] > a');
+ for(var i=0;i<anchors.length;i++){
+  var tx=(anchors[i].textContent||'').trim();
+  if(tx===name||tx.indexOf(name)===0){anchors[i].click();return true;}
+ }
+ return false;
+}
 function findModalContainer(){
  var heading=null;
  document.querySelectorAll('*').forEach(function(el){
@@ -275,18 +283,20 @@ function userLoaded(name){
  return re.test(document.body.innerText)&&!!findMainTable();
 }
 async function run(){
+if(window.__zangyoBulkRunning){alert('すでに一括チェックが実行中です。完了までお待ちください。');return;}
+window.__zangyoBulkRunning=true;
 try{
  if(!clickExact('button,a','選択')){alert('システム設定→タイムカード一覧画面で実行してください。');return;}
  var modal0=await waitFor(findModalContainer,8000);
  if(!modal0){alert('選択画面が開けませんでした。');return;}
 
- var deptNames=getDepartmentNames();
- if(deptNames.length===0){alert('部署一覧が取得できませんでした。');return;}
+ var deptNames=await waitFor(function(){var n=getDepartmentNames();return n.length>0?n:null;},8000);
+ if(!deptNames){alert('部署一覧が取得できませんでした。');return;}
 
  var deptName=await chooseDepartment(deptNames);
  if(!deptName)return;
 
- if(!clickExact('a',deptName)){alert('部署「'+deptName+'」の選択に失敗しました。');return;}
+ if(!clickDepartmentByName(deptName)){alert('部署「'+deptName+'」の選択に失敗しました。');return;}
  var ready=await waitFor(function(){return getUserRows().length>0?true:null;},8000);
  if(!ready){alert('「'+deptName+'」の社員一覧が読み込めませんでした。');return;}
 
@@ -307,7 +317,7 @@ try{
    if(!reopened){results.push({name:name,role:role,error:'選択画面が開けません'});continue;}
   }
 
-  if(!clickExact('a',deptName)){results.push({name:name,role:role,error:'部署が見つかりません'});continue;}
+  if(!clickDepartmentByName(deptName)){results.push({name:name,role:role,error:'部署が見つかりません'});continue;}
   await waitFor(function(){return getUserRows().length>0?true:null;},8000);
 
   var rows=getUserRows();
@@ -338,6 +348,8 @@ try{
 }catch(e){
  hideLoading();
  alert('エラー:'+e.message);
+}finally{
+ window.__zangyoBulkRunning=false;
 }
 }
 
