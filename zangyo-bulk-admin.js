@@ -283,12 +283,29 @@ async function selectScopePath(path){
  }
  return clickDepartmentByName(path[path.length-1]);
 }
-async function navigateToUser(path,name){
- if(!findModalContainer()){
-  if(!clickExact('button,a','選択'))return'選択ボタンが見つかりません';
-  var reopened=await waitFor(findModalContainer,8000);
-  if(!reopened)return'モーダルが開きません';
+function hasDeptTree(){
+ return document.querySelectorAll('li[class*="jstree-node"] > a').length>0;
+}
+async function openUserPickerModal(){
+ if(findModalContainer()&&hasDeptTree())return true;
+ var candidates=[];
+ document.querySelectorAll('button,a').forEach(function(el){
+  if((el.textContent||'').trim()==='選択')candidates.push(el);
+ });
+ for(var i=0;i<candidates.length;i++){
+  candidates[i].click();
+  var heading=await waitFor(findModalContainer,3000);
+  if(heading){
+   var treeReady=await waitFor(function(){return hasDeptTree()?true:null;},3000);
+   if(treeReady)return true;
+   clickExact('button,a','キャンセル');
+   await sleep(300);
+  }
  }
+ return false;
+}
+async function navigateToUser(path,name){
+ if(!await openUserPickerModal())return'ユーザー選択画面(部署ツリー付き)が開けません';
  var deptReady=await waitFor(function(){var n=getDepartmentNames();return n.length>0?true:null;},8000);
  if(!deptReady)return'部署一覧の読込待ちタイムアウト';
  await sleep(400);
@@ -404,9 +421,7 @@ async function run(){
 if(window.__zangyoBulkRunning){alert('すでに一括チェックが実行中です。完了までお待ちください。');return;}
 window.__zangyoBulkRunning=true;
 try{
- if(!clickExact('button,a','選択')){alert('システム設定→タイムカード一覧画面で実行してください。');return;}
- var modal0=await waitFor(findModalContainer,8000);
- if(!modal0){alert('選択画面が開けませんでした。');return;}
+ if(!await openUserPickerModal()){alert('システム設定→タイムカード一覧画面で実行してください。');return;}
 
  var deptNames=await waitFor(function(){var n=getDepartmentNames();return n.length>0?n:null;},8000);
  if(!deptNames){alert('部署一覧が取得できませんでした。');return;}
