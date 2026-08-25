@@ -153,7 +153,7 @@ async function waitForStableRows(maxTotal){
    stableHits=0;
   }
   lastLen=len;
-  await sleep(300);
+  await sleep(200);
  }
  return getUserRows().length>0;
 }
@@ -308,7 +308,7 @@ async function navigateToUser(path,name){
  if(!await openUserPickerModal())return'ユーザー選択画面(部署ツリー付き)が開けません';
  var deptReady=await waitFor(function(){var n=getDepartmentNames();return n.length>0?true:null;},8000);
  if(!deptReady)return'部署一覧の読込待ちタイムアウト';
- await sleep(400);
+ await sleep(200);
  if(!await selectScopePath(path))return'部署/課の選択に失敗';
  var rowsReady=await waitForStableRows(8000);
  if(!rowsReady)return'社員一覧の読込待ちタイムアウト';
@@ -322,7 +322,7 @@ async function navigateToUser(path,name){
  if(!clickExact('button,a','OK'))return'OKボタンが見つかりません';
  var loaded=await waitFor(function(){return userLoaded(name)?true:null;},8000);
  if(!loaded)return'画面切替待ちタイムアウト';
- await sleep(400);
+ await sleep(200);
  return null;
 }
 function findModalContainer(){
