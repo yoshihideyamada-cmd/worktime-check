@@ -138,6 +138,25 @@ function waitFor(check,timeout){
   })();
  });
 }
+function sleep(ms){
+ return new Promise(function(r){setTimeout(r,ms);});
+}
+async function waitForStableRows(maxTotal){
+ var start=Date.now();
+ var lastLen=-1,stableHits=0;
+ while(Date.now()-start<maxTotal){
+  var len=getUserRows().length;
+  if(len>0&&len===lastLen){
+   stableHits++;
+   if(stableHits>=2)return true;
+  }else{
+   stableHits=0;
+  }
+  lastLen=len;
+  await sleep(300);
+ }
+ return getUserRows().length>0;
+}
 function buildReasonMap(tb){
  var map={};
  for(var r=0;r<tb.rows.length;r++){
@@ -249,6 +268,15 @@ async function expandDeptIfNeeded(name){
  await waitFor(function(){return/jstree-closed/.test(li.className)?null:true;},8000);
  return getChildDeptNames(li);
 }
+async function collapseIfExpanded(name){
+ var a=findDeptAnchor(name);
+ if(!a)return;
+ var li=a.closest('li');
+ if(/jstree-closed/.test(li.className))return;
+ var icon=li.querySelector('i.jstree-ocl');
+ if(icon)icon.click();
+ await waitFor(function(){return/jstree-closed/.test(li.className)?true:null;},4000);
+}
 async function selectScopePath(path){
  for(var i=0;i<path.length-1;i++){
   await expandDeptIfNeeded(path[i]);
@@ -263,8 +291,9 @@ async function navigateToUser(path,name){
  }
  var deptReady=await waitFor(function(){var n=getDepartmentNames();return n.length>0?true:null;},8000);
  if(!deptReady)return'部署一覧の読込待ちタイムアウト';
+ await sleep(400);
  if(!await selectScopePath(path))return'部署/課の選択に失敗';
- var rowsReady=await waitFor(function(){return getUserRows().length>0?true:null;},8000);
+ var rowsReady=await waitForStableRows(8000);
  if(!rowsReady)return'社員一覧の読込待ちタイムアウト';
 
  var rows=getUserRows();
@@ -275,7 +304,9 @@ async function navigateToUser(path,name){
  target.radio.click();
  if(!clickExact('button,a','OK'))return'OKボタンが見つかりません';
  var loaded=await waitFor(function(){return userLoaded(name)?true:null;},8000);
- return loaded?null:'画面切替待ちタイムアウト';
+ if(!loaded)return'画面切替待ちタイムアウト';
+ await sleep(400);
+ return null;
 }
 function findModalContainer(){
  var heading=null;
@@ -325,7 +356,9 @@ function chooseDepartment(options,titleText){
   normalized.forEach(function(opt){
    var btn=document.createElement('button');
    btn.textContent=opt.label;
-   btn.style='display:block;width:100%;text-align:left;padding:8px;margin-bottom:6px';
+   btn.style=opt.isAll
+    ?'display:block;width:100%;text-align:left;padding:8px;margin-bottom:10px;font-weight:700;background:#fff3cd;border:1px solid #e0c060'
+    :'display:block;width:100%;text-align:left;padding:8px;margin-bottom:6px';
    btn.onclick=function(){box.remove();resolve(opt.value);};
    box.appendChild(btn);
   });
@@ -387,16 +420,19 @@ try{
   var children=await expandDeptIfNeeded(path[path.length-1]);
   if(children.length===0)break;
   var label=path[path.length-1];
-  var options=[{label:label+'（全体）',value:ALL_SENTINEL}].concat(shortenChildLabels(label,children));
+  var options=[{label:label+'（全体）',value:ALL_SENTINEL,isAll:true}].concat(shortenChildLabels(label,children));
   var next=await chooseDepartment(options,label+'の中から選んでください');
   if(!next)return;
-  if(next===ALL_SENTINEL)break;
+  if(next===ALL_SENTINEL){
+   await collapseIfExpanded(label);
+   break;
+  }
   path.push(next);
  }
  var scopeLabel=path.join(' ');
 
  if(!await selectScopePath(path)){alert('部署「'+scopeLabel+'」の選択に失敗しました。');return;}
- var ready=await waitFor(function(){return getUserRows().length>0?true:null;},8000);
+ var ready=await waitForStableRows(8000);
  if(!ready){alert('「'+scopeLabel+'」の社員一覧が読み込めませんでした。');return;}
 
  var initialRows=getUserRows();
