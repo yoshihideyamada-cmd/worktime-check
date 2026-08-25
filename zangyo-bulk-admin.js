@@ -444,7 +444,7 @@ try{
  for(var idx=0;idx<targets.length;idx++){
   var name=targets[idx].name;
   var role=targets[idx].role;
-  showLoading((idx+1)+'/'+targets.length+'人目\n'+name+'('+role+') を処理中...');
+  showLoading((idx+1)+'/'+targets.length+'人目\n'+name+(isManagerRole(role)?'('+role+')':'')+' を処理中...');
 
   var failReason=await navigateToUser(path,name);
   if(failReason){results.push({name:name,role:role,error:failReason});continue;}
