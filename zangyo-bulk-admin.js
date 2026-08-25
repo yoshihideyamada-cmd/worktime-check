@@ -41,7 +41,7 @@ function hideLoading(){
  if(old)old.remove();
 }
 
-function showSummary(deptName,results){
+function showSummary(deptName,childName,scopeLabel,results){
  var old=document.getElementById('__zangyo_result');
  if(old)old.remove();
 
@@ -55,7 +55,7 @@ function showSummary(deptName,results){
  close.onclick=function(){box.remove()};
 
  var heading=document.createElement('div');
- heading.textContent='【'+deptName+' 一括残業チェック】';
+ heading.textContent='【'+scopeLabel+' 一括残業チェック】';
  heading.style='font-weight:700;font-size:17px;margin-bottom:10px';
 
  var table=document.createElement('table');
@@ -67,8 +67,16 @@ function showSummary(deptName,results){
  results.forEach(function(r){
   var tr=document.createElement('tr');
   var tdName=document.createElement('td');
-  tdName.style='padding:4px;border-bottom:1px solid #eee';
+  tdName.style='padding:4px;border-bottom:1px solid #eee;color:#0645ad;text-decoration:underline;cursor:pointer';
   tdName.textContent=r.name+(r.role?'('+r.role+')':'');
+  tdName.title='クリックでこの人のタイムカードを開く';
+  tdName.onclick=async function(){
+   box.remove();
+   showLoading(r.name+'のタイムカードを開いています...');
+   var ok=await navigateToUser(deptName,childName,r.name);
+   hideLoading();
+   if(!ok)alert(r.name+'の画面を開けませんでした。');
+  };
   var tdVal=document.createElement('td');
   tdVal.style='padding:4px;border-bottom:1px solid #eee;text-align:right';
   if(r.error){
@@ -84,7 +92,7 @@ function showSummary(deptName,results){
  });
 
  var notice=document.createElement('div');
- notice.textContent='ノリで作成したので間違っているかもしれません。\n係長以下＝社員用ロジック、課長以上＝課長用ロジック(深夜のみ)で自動判定しています。\n苦情・修正依頼は気分がいいときに受け付けます。山田';
+ notice.textContent='ノリで作成したので間違っているかもしれません。\n係長以下＝社員用ロジック、課長以上＝課長用ロジック(深夜のみ)で自動判定しています。\n氏名をクリックするとその人のタイムカードを開けます。\n苦情・修正依頼は気分がいいときに受け付けます。山田';
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  box.appendChild(close);
@@ -214,6 +222,67 @@ function clickDepartmentByName(name){
  }
  return false;
 }
+function findDeptAnchor(name){
+ var anchors=document.querySelectorAll('li[class*="jstree-node"] > a');
+ for(var i=0;i<anchors.length;i++){
+  var tx=(anchors[i].textContent||'').trim();
+  if(tx===name||tx.indexOf(name)===0)return anchors[i];
+ }
+ return null;
+}
+function getChildDeptNames(li){
+ var names=[];
+ var childAnchors=li.querySelectorAll(':scope > ul > li[class*="jstree-node"] > a');
+ for(var i=0;i<childAnchors.length;i++){
+  var tx=(childAnchors[i].textContent||'').trim();
+  if(tx)names.push(tx);
+ }
+ return names;
+}
+async function expandDeptIfNeeded(name){
+ var a=findDeptAnchor(name);
+ if(!a)return[];
+ var li=a.closest('li');
+ if(!/jstree-closed/.test(li.className))return getChildDeptNames(li);
+ var icon=li.querySelector('i.jstree-ocl');
+ if(icon)icon.click();
+ await waitFor(function(){return/jstree-closed/.test(li.className)?null:true;},8000);
+ return getChildDeptNames(li);
+}
+async function selectScope(parentName,childName){
+ if(!childName)return clickDepartmentByName(parentName);
+ await expandDeptIfNeeded(parentName);
+ var a=findDeptAnchor(parentName);
+ if(!a)return false;
+ var li=a.closest('li');
+ var childAnchors=li.querySelectorAll(':scope > ul > li[class*="jstree-node"] > a');
+ for(var i=0;i<childAnchors.length;i++){
+  var tx=(childAnchors[i].textContent||'').trim();
+  if(tx===childName||tx.indexOf(childName)===0){childAnchors[i].click();return true;}
+ }
+ return false;
+}
+async function navigateToUser(deptName,childName,name){
+ if(!findModalContainer()){
+  if(!clickExact('button,a','選択'))return false;
+  var reopened=await waitFor(findModalContainer,8000);
+  if(!reopened)return false;
+ }
+ var deptReady=await waitFor(function(){var n=getDepartmentNames();return n.length>0?true:null;},8000);
+ if(!deptReady)return false;
+ if(!await selectScope(deptName,childName))return false;
+ await waitFor(function(){return getUserRows().length>0?true:null;},8000);
+
+ var rows=getUserRows();
+ var target=null;
+ for(var i=0;i<rows.length;i++)if(rows[i].name===name){target=rows[i];break;}
+ if(!target)return false;
+
+ target.radio.click();
+ if(!clickExact('button,a','OK'))return false;
+ var loaded=await waitFor(function(){return userLoaded(name)?true:null;},8000);
+ return!!loaded;
+}
 function findModalContainer(){
  var heading=null;
  document.querySelectorAll('*').forEach(function(el){
@@ -245,7 +314,7 @@ function getDepartmentNames(){
  }
  return names;
 }
-function chooseDepartment(names){
+function chooseDepartment(names,titleText){
  return new Promise(function(resolve){
   var old=document.getElementById('__zangyo_deptchooser');
   if(old)old.remove();
@@ -254,7 +323,7 @@ function chooseDepartment(names){
   box.style='position:fixed;top:12px;right:12px;z-index:999999;background:white;color:black;border:2px solid #333;padding:14px 16px;width:280px;max-width:90vw;max-height:80vh;overflow:auto;box-shadow:0 4px 16px #0005;font:15px Meiryo,sans-serif;line-height:1.6';
 
   var title=document.createElement('div');
-  title.textContent='一括チェックする部署を選んでください';
+  title.textContent=titleText||'一括チェックする部署を選んでください';
   title.style='font-weight:700;margin-bottom:10px';
   box.appendChild(title);
 
@@ -296,12 +365,21 @@ try{
  var deptName=await chooseDepartment(deptNames);
  if(!deptName)return;
 
- if(!clickDepartmentByName(deptName)){alert('部署「'+deptName+'」の選択に失敗しました。');return;}
+ var childNames=await expandDeptIfNeeded(deptName);
+ var childName=null;
+ if(childNames.length>0){
+  childName=await chooseDepartment([deptName+'(全体)'].concat(childNames),deptName+'の中から選んでください');
+  if(!childName)return;
+  if(childName===deptName+'(全体)')childName=null;
+ }
+ var scopeLabel=childName?deptName+' '+childName:deptName;
+
+ if(!await selectScope(deptName,childName)){alert('部署「'+scopeLabel+'」の選択に失敗しました。');return;}
  var ready=await waitFor(function(){return getUserRows().length>0?true:null;},8000);
- if(!ready){alert('「'+deptName+'」の社員一覧が読み込めませんでした。');return;}
+ if(!ready){alert('「'+scopeLabel+'」の社員一覧が読み込めませんでした。');return;}
 
  var initialRows=getUserRows();
- if(initialRows.length===0){alert('「'+deptName+'」に社員が見つかりませんでした。');return;}
+ if(initialRows.length===0){alert('「'+scopeLabel+'」に社員が見つかりませんでした。');return;}
  var targets=initialRows.map(function(r){return{name:r.name,role:r.role};});
 
  var results=[];
@@ -311,28 +389,8 @@ try{
   var role=targets[idx].role;
   showLoading((idx+1)+'/'+targets.length+'人目\n'+name+'('+role+') を処理中...');
 
-  if(!findModalContainer()){
-   if(!clickExact('button,a','選択')){results.push({name:name,role:role,error:'選択ボタンが見つかりません'});continue;}
-   var reopened=await waitFor(findModalContainer,8000);
-   if(!reopened){results.push({name:name,role:role,error:'選択画面が開けません'});continue;}
-  }
-
-  var deptReady=await waitFor(function(){var n=getDepartmentNames();return n.length>0?true:null;},8000);
-  if(!deptReady){results.push({name:name,role:role,error:'部署一覧が読み込めません'});continue;}
-
-  if(!clickDepartmentByName(deptName)){results.push({name:name,role:role,error:'部署が見つかりません'});continue;}
-  await waitFor(function(){return getUserRows().length>0?true:null;},8000);
-
-  var rows=getUserRows();
-  var target=null;
-  for(var ri=0;ri<rows.length;ri++)if(rows[ri].name===name){target=rows[ri];break;}
-  if(!target){results.push({name:name,role:role,error:'一覧に見つかりません'});continue;}
-
-  target.radio.click();
-  if(!clickExact('button,a','OK')){results.push({name:name,role:role,error:'OKボタンが見つかりません'});continue;}
-
-  var loaded=await waitFor(function(){return userLoaded(name)?true:null;},8000);
-  if(!loaded){results.push({name:name,role:role,error:'画面切替タイムアウト'});continue;}
+  var loaded=await navigateToUser(deptName,childName,name);
+  if(!loaded){results.push({name:name,role:role,error:'画面切替に失敗しました'});continue;}
 
   var reasonMap=null;
   if(clickTabByText(/^事由申請/)){
@@ -347,7 +405,7 @@ try{
  }
 
  hideLoading();
- showSummary(deptName,results);
+ showSummary(deptName,childName,scopeLabel,results);
 }catch(e){
  hideLoading();
  alert('エラー:'+e.message);
