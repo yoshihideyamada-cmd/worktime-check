@@ -382,7 +382,7 @@ try{
  if(!first)return;
  var path=[first];
 
- var ALL_SENTINEL=' ALL';
+ var ALL_SENTINEL='ALL';
  while(true){
   var children=await expandDeptIfNeeded(path[path.length-1]);
   if(children.length===0)break;
@@ -426,7 +426,7 @@ try{
  }
 
  hideLoading();
- showSummary(deptName,childName,scopeLabel,results);
+ showSummary(path,scopeLabel,results);
 }catch(e){
  hideLoading();
  alert('エラー:'+e.message);
