@@ -84,9 +84,9 @@ function showSummary(path,scopeLabel,results){
   tdName.onclick=async function(){
    box.remove();
    showLoading(r.name+'のタイムカードを開いています...');
-   var ok=await navigateToUser(path,r.name);
+   var failReason=await navigateToUser(path,r.name);
    hideLoading();
-   if(!ok)alert(r.name+'の画面を開けませんでした。');
+   if(failReason)alert(r.name+'の画面を開けませんでした:\n'+failReason);
   };
   var tdVal=document.createElement('td');
   tdVal.style='padding:4px;border-bottom:1px solid #eee;text-align:right';
