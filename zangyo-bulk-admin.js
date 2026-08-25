@@ -287,7 +287,7 @@ function userLoaded(name){
 }
 async function run(){
 try{
- if(!clickExact('button,a','選択')){alert('「選択」ボタンが見つかりません。タイムカード画面で実行してください。');return;}
+ if(!clickExact('button,a','選択')){alert('システム設定→タイムカード一覧画面で実行してください。');return;}
  var container0=await waitFor(findModalContainer,8000);
  if(!container0){alert('選択画面が開けませんでした。');return;}
 
