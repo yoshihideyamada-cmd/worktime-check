@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一括残業チェック(管理者用)インストール</title>
+<style>
+body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:#f5f5f5;
+    margin:0;
+    padding:20px;
+}
+.card{
+    max-width:600px;
+    margin:auto;
+    background:#fff;
+    border-radius:16px;
+    padding:24px;
+    box-shadow:0 4px 12px rgba(0,0,0,.1);
+    line-height:1.8;
+}
+h1{
+    font-size:20px;
+    margin:0 0 16px;
+}
+.bookmarklet{
+    display:inline-block;
+    background:#d60000;
+    color:#fff;
+    text-decoration:none;
+    font-weight:bold;
+    padding:14px 20px;
+    border-radius:8px;
+    cursor:grab;
+    margin:16px 0;
+}
+.steps{
+    background:#f3fcff;
+    border:1px solid #89d8ee;
+    border-radius:8px;
+    padding:16px 20px;
+    margin-top:20px;
+}
+.steps li{
+    margin-bottom:8px;
+}
+.note{
+    color:#666;
+    font-size:13px;
+    margin-top:20px;
+}
+</style>
+</head>
+<body>
+
+<div class="card">
+
+<h1>一括残業チェック(管理者用)ブックマークレットの登録</h1>
+
+<p>下の赤いボタンを、ブラウザの「お気に入りバー(ブックマークバー)」までドラッグ&ドロップしてください。</p>
+
+<a class="bookmarklet" draggable="true"
+   href="javascript:(function(){var s=document.createElement('script');s.src='https://yoshihideyamada-cmd.github.io/worktime-check/zangyo-bulk-admin.js?'+Date.now();document.body.appendChild(s)})()">
+一括残業チェック(管理者用)
+</a>
+
+<div class="steps">
+<b>お気に入りバーが表示されていない場合</b>
+<ul>
+<li>Chrome: <code>Ctrl + Shift + B</code>(Windows)でお気に入りバーの表示/非表示を切り替えられます</li>
+<li>Edge: <code>Ctrl + Shift + B</code>で同様に切り替えられます</li>
+</ul>
+
+<b>使い方</b>
+<ul>
+<li>X'sionの「システム設定 → タイムカード」画面を開いた状態で、登録したブックマークをクリックしてください</li>
+<li>チェックしたい部署を選ぶと、自動で部署内全員の残業チェックが実行されます</li>
+</ul>
+</div>
+
+<div class="note">
+このページ自体は保存・共有せず、ボタンをブックマークバーに登録したら閉じて大丈夫です。<br>
+中身を更新した場合もブックマーク自体の変更は不要です(次回クリック時に最新の内容が読み込まれます)。
+</div>
+
+</div>
+
+</body>
+</html>
