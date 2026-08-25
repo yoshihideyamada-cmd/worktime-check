@@ -82,7 +82,6 @@ function showSummary(path,scopeLabel,results){
   tdName.textContent=r.name+(isManagerRole(r.role)?'('+r.role+')':'');
   tdName.title='クリックでこの人のタイムカードを開く';
   tdName.onclick=async function(){
-   box.remove();
    showLoading(r.name+'のタイムカードを開いています...');
    var failReason=await navigateToUser(path,r.name);
    hideLoading();
