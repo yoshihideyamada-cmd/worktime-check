@@ -152,8 +152,19 @@ function waitFor(check,timeout){
 function sleep(ms){
  return new Promise(function(r){setTimeout(r,ms);});
 }
-async function waitForStableRows(maxTotal){
- return!!(await waitFor(function(){return getUserRows().length>0?true:null;},maxTotal));
+function snapshotRadios(){
+ return getUserRows().map(function(r){return r.radio;});
+}
+async function waitForRowsRefreshed(prevRadios,maxTotal){
+ return!!(await waitFor(function(){
+  var cur=getUserRows();
+  if(cur.length===0)return null;
+  if(prevRadios.length===0)return true;
+  for(var i=0;i<prevRadios.length;i++){
+   if(!document.body.contains(prevRadios[i]))return true;
+  }
+  return cur.length!==prevRadios.length?true:null;
+ },maxTotal));
 }
 function buildReasonMap(tb){
  var map={};
@@ -306,8 +317,9 @@ async function navigateToUser(path,name){
  if(!await openUserPickerModal())return'ユーザー選択画面(部署ツリー付き)が開けません';
  var deptReady=await waitFor(function(){var n=getDepartmentNames();return n.length>0?true:null;},8000);
  if(!deptReady)return'部署一覧の読込待ちタイムアウト';
+ var prevRadios=snapshotRadios();
  if(!await selectScopePath(path))return'部署/課の選択に失敗';
- var rowsReady=await waitForStableRows(8000);
+ var rowsReady=await waitForRowsRefreshed(prevRadios,8000);
  if(!rowsReady)return'社員一覧の読込待ちタイムアウト';
 
  var rows=getUserRows();
@@ -459,8 +471,9 @@ try{
  }
  var scopeLabel=path[path.length-1];
 
+ var prevRadiosInit=snapshotRadios();
  if(!await selectScopePath(path)){alert('部署「'+scopeLabel+'」の選択に失敗しました。');return;}
- var ready=await waitForStableRows(8000);
+ var ready=await waitForRowsRefreshed(prevRadiosInit,8000);
  if(!ready){alert('「'+scopeLabel+'」の社員一覧が読み込めませんでした。');return;}
 
  var initialRows=getUserRows();
