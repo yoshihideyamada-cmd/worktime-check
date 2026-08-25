@@ -77,8 +77,76 @@ function show(title,u,details){
  document.body.appendChild(box);
 }
 
-try{
- var R=document.getElementsByTagName('table')[2].rows;
+function showLoading(msg){
+ var old=document.getElementById('__zangyo_loading');
+ if(old)old.remove();
+ var box=document.createElement('div');
+ box.id='__zangyo_loading';
+ box.style='position:fixed;top:12px;right:12px;z-index:999999;background:white;color:#333;border:2px solid #333;padding:10px 14px;font:14px Meiryo,sans-serif;box-shadow:0 4px 16px #0005';
+ box.textContent=msg;
+ document.body.appendChild(box);
+}
+function hideLoading(){
+ var old=document.getElementById('__zangyo_loading');
+ if(old)old.remove();
+}
+
+function isReasonTable(tb){
+ return !!tb&&tb.rows.length>3&&/事由1/.test(tb.innerText)&&/事由2/.test(tb.innerText);
+}
+function findReasonTable(){
+ var tables=document.getElementsByTagName('table');
+ for(var i=0;i<tables.length;i++)if(isReasonTable(tables[i]))return tables[i];
+ return null;
+}
+function findMainTable(){
+ var tb=document.getElementsByTagName('table')[2];
+ return(tb&&!isReasonTable(tb))?tb:null;
+}
+function clickTabByText(re){
+ var anchors=document.querySelectorAll('a');
+ for(var i=0;i<anchors.length;i++){
+  var tx=(anchors[i].textContent||'').trim();
+  if(re.test(tx)&&tx.length<20){anchors[i].click();return true;}
+ }
+ var all=document.querySelectorAll('li,button');
+ for(var j=0;j<all.length;j++){
+  var tx2=(all[j].textContent||'').trim();
+  if(re.test(tx2)&&tx2.length<20){all[j].click();return true;}
+ }
+ return false;
+}
+function waitFor(check,timeout){
+ return new Promise(function(resolve){
+  var start=Date.now();
+  (function poll(){
+   var r=check();
+   if(r)return resolve(r);
+   if(Date.now()-start>timeout)return resolve(null);
+   setTimeout(poll,200);
+  })();
+ });
+}
+function buildReasonMap(tb){
+ var map={};
+ for(var r=0;r<tb.rows.length;r++){
+  var cells=tb.rows[r].cells;
+  if(cells.length>10&&/^\d\d月\d\d日/.test(g(cells[0]))){
+   var d=g(cells[0]);
+   var reasons=[];
+   for(var ci=4;ci<=8;ci++){
+    var txt=cells[ci]?g(cells[ci]).trim():'';
+    if(txt)reasons.push(txt);
+   }
+   map[d]=reasons.join(' / ');
+  }
+ }
+ return map;
+}
+
+function runCalc(reasonMap){
+ var mainTable=findMainTable()||document.getElementsByTagName('table')[2];
+ var R=mainTable.rows;
  var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub;
  var details=[];
 
@@ -86,6 +154,7 @@ try{
   v=R[i].cells;
   if(v.length>10&&/^\d\d月\d\d日/.test(d=g(v[0]))){
    j=g(v[2]);
+   if(reasonMap&&reasonMap[d])j+=' / '+reasonMap[d];
 
    if(/振替休日/.test(j)){
     sub=Math.min(last,465);
@@ -124,7 +193,28 @@ try{
  }
 
  show('課長用',u,details);
+}
+
+async function run(){
+try{
+ var reasonMap=null;
+
+ if(clickTabByText(/^事由申請/)){
+  showLoading('事由申請データを読み込み中...');
+  var reasonTable=await waitFor(findReasonTable,8000);
+  if(reasonTable)reasonMap=buildReasonMap(reasonTable);
+
+  clickTabByText(/^勤怠申請/);
+  await waitFor(findMainTable,8000);
+  hideLoading();
+ }
+
+ runCalc(reasonMap);
 }catch(e){
+ hideLoading();
  alert('エラー:'+e.message);
 }
+}
+
+run();
 })();
