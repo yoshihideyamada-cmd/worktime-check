@@ -438,6 +438,8 @@ async function run(){
 if(window.__zangyoBulkRunning){alert('すでに一括チェックが実行中です。完了までお待ちください。');return;}
 window.__zangyoBulkRunning=true;
 window.__zangyoBulkStopRequested=false;
+var prevResult=document.getElementById('__zangyo_result');
+if(prevResult)prevResult.remove();
 try{
  if(!await openUserPickerModal()){alert('システム設定→タイムカード一覧画面で実行してください。');return;}
 
