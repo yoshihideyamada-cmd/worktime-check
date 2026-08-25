@@ -206,27 +206,16 @@ function clickExact(selector,text,root){
  }
  return false;
 }
-function hasExactText(root,selector,text){
- var els=root.querySelectorAll(selector);
- for(var i=0;i<els.length;i++)if((els[i].textContent||'').trim()===text)return true;
- return false;
-}
 function findModalContainer(){
  var heading=null;
  document.querySelectorAll('*').forEach(function(el){
   if(!heading&&el.children.length===0&&(el.textContent||'').trim()==='ユーザーを選択して下さい。')heading=el;
  });
- if(!heading)return null;
- var c=heading.closest('div')||heading.parentElement;
- for(var i=0;i<10&&c&&c.parentElement;i++){
-  if(hasExactText(c,'button,a','キャンセル'))return c;
-  c=c.parentElement;
- }
- return c;
+ return heading;
 }
-function getUserRows(container){
+function getUserRows(){
  var rows=[];
- var radios=container.querySelectorAll('input[type=radio]');
+ var radios=document.querySelectorAll('input[type=radio]');
  for(var i=0;i<radios.length;i++){
   var tr=radios[i].closest('tr');
   if(!tr)continue;
@@ -239,9 +228,9 @@ function getUserRows(container){
  }
  return rows;
 }
-function getDepartmentNames(container){
+function getDepartmentNames(){
  var names=[],seen={};
- var anchors=container.querySelectorAll('li[class*="jstree-node"] > a');
+ var anchors=document.querySelectorAll('li[class*="jstree-node"] > a');
  for(var i=0;i<anchors.length;i++){
   var tx=(anchors[i].textContent||'').trim();
   if(tx&&tx!=='すべて'&&!seen[tx]){seen[tx]=true;names.push(tx);}
@@ -288,20 +277,20 @@ function userLoaded(name){
 async function run(){
 try{
  if(!clickExact('button,a','選択')){alert('システム設定→タイムカード一覧画面で実行してください。');return;}
- var container0=await waitFor(findModalContainer,8000);
- if(!container0){alert('選択画面が開けませんでした。');return;}
+ var modal0=await waitFor(findModalContainer,8000);
+ if(!modal0){alert('選択画面が開けませんでした。');return;}
 
- var deptNames=getDepartmentNames(container0);
+ var deptNames=getDepartmentNames();
  if(deptNames.length===0){alert('部署一覧が取得できませんでした。');return;}
 
  var deptName=await chooseDepartment(deptNames);
  if(!deptName)return;
 
- if(!clickExact('a',deptName,container0)){alert('部署「'+deptName+'」の選択に失敗しました。');return;}
- var container=await waitFor(function(){return getUserRows(container0).length>0?container0:null;},8000);
- if(!container){alert('「'+deptName+'」の社員一覧が読み込めませんでした。');return;}
+ if(!clickExact('a',deptName)){alert('部署「'+deptName+'」の選択に失敗しました。');return;}
+ var ready=await waitFor(function(){return getUserRows().length>0?true:null;},8000);
+ if(!ready){alert('「'+deptName+'」の社員一覧が読み込めませんでした。');return;}
 
- var initialRows=getUserRows(container);
+ var initialRows=getUserRows();
  if(initialRows.length===0){alert('「'+deptName+'」に社員が見つかりませんでした。');return;}
  var targets=initialRows.map(function(r){return{name:r.name,role:r.role};});
 
@@ -312,17 +301,16 @@ try{
   var role=targets[idx].role;
   showLoading((idx+1)+'/'+targets.length+'人目\n'+name+'('+role+') を処理中...');
 
-  var c2=findModalContainer();
-  if(!c2){
+  if(!findModalContainer()){
    if(!clickExact('button,a','選択')){results.push({name:name,role:role,error:'選択ボタンが見つかりません'});continue;}
-   c2=await waitFor(findModalContainer,8000);
+   var reopened=await waitFor(findModalContainer,8000);
+   if(!reopened){results.push({name:name,role:role,error:'選択画面が開けません'});continue;}
   }
-  if(!c2){results.push({name:name,role:role,error:'選択画面が開けません'});continue;}
 
-  if(!clickExact('a',deptName,c2)){results.push({name:name,role:role,error:'部署が見つかりません'});continue;}
-  await waitFor(function(){return getUserRows(c2).length>0?true:null;},8000);
+  if(!clickExact('a',deptName)){results.push({name:name,role:role,error:'部署が見つかりません'});continue;}
+  await waitFor(function(){return getUserRows().length>0?true:null;},8000);
 
-  var rows=getUserRows(c2);
+  var rows=getUserRows();
   var target=null;
   for(var ri=0;ri<rows.length;ri++)if(rows[ri].name===name){target=rows[ri];break;}
   if(!target){results.push({name:name,role:role,error:'一覧に見つかりません'});continue;}
