@@ -317,6 +317,9 @@ try{
    if(!reopened){results.push({name:name,role:role,error:'選択画面が開けません'});continue;}
   }
 
+  var deptReady=await waitFor(function(){var n=getDepartmentNames();return n.length>0?true:null;},8000);
+  if(!deptReady){results.push({name:name,role:role,error:'部署一覧が読み込めません'});continue;}
+
   if(!clickDepartmentByName(deptName)){results.push({name:name,role:role,error:'部署が見つかりません'});continue;}
   await waitFor(function(){return getUserRows().length>0?true:null;},8000);
 
