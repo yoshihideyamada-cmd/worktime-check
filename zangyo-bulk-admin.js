@@ -358,7 +358,7 @@ function calcUserTotal(reasonMap,isManager){
    er=t(g(v[10]));
    oe0=t(ec);
    oe=z(er,oe0);
-   wait=/事後報告\s*入力待ち|xs-tc-badge-orange/.test(sc+ec+h(v[7])+h(v[8]));
+   wait=/事後報告\s*入力待ち|進行中|xs-tc-badge-orange/.test(sc+ec+h(v[7])+h(v[8]));
    actualIn=t(g(v[5]));
    actualOut=t(g(v[6]));
    lv=leaveMinutes(j);
