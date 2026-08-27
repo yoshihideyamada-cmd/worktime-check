@@ -354,7 +354,7 @@ function buildGapMap(tb){
 function calcUserTotal(reasonMap,isManager,gapMap){
  var mainTable=findMainTable()||document.getElementsByTagName('table')[2];
  var R=mainTable.rows;
- var u=0,last=0,i,v,d,j,kubun,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,lateStart,earlyEnd,hasAttendance,dayWarnings,isHenkei,henkeiTotal=0,gap,gapPairs;
+ var u=0,last=0,i,v,d,j,kubun,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,lateStart,earlyEnd,hasAttendance,dayWarnings,isHenkei,henkeiTotal=0,gap,gapPairs,isNightDuty;
  var details=[];
 
  for(i=1;i<R.length;i++){
@@ -368,6 +368,7 @@ function calcUserTotal(reasonMap,isManager,gapMap){
    }
    dayWarnings=[];
    isHenkei=false;
+   isNightDuty=false;
    gapPairs=(gapMap&&gapMap[d])||[];
 
    if(/振替休日/.test(j)){
@@ -405,6 +406,13 @@ function calcUserTotal(reasonMap,isManager,gapMap){
     w=c(ea<0?os:ea,oe,p)-gap;
     if(w<0)w=0;
     m=/代付/.test(j)?Math.max(0,w-465):w;
+   }else if(isNightDuty=/ナイト当番/.test(j)&&gapPairs.length>0){
+    var nFirstExit=gapPairs[0][0];
+    var nLastReentry=gapPairs[gapPairs.length-1][1];
+    var nNormal=isManager?night(st,nFirstExit,p):Math.max(0,c(st,nFirstExit,p)-465);
+    var nDuty=Math.max(0,en-nLastReentry);
+    m=nNormal+nDuty;
+    gap=0;
    }else if(isManager){
     var nightGap=0;
     for(var gj=0;gj<gapPairs.length;gj++)nightGap+=night(gapPairs[gj][0],gapPairs[gj][1],p);
@@ -431,7 +439,8 @@ function calcUserTotal(reasonMap,isManager,gapMap){
    if(isHenkei)henkeiTotal+=m;
    if(m!==0||dayWarnings.length){
     var label=isHenkei?'変形：'+(m>=0?'+':'')+hours(m):'残業：'+hours(m);
-    if(gap>0)label+='(抜け→再入'+hours(gap)+'差引済)';
+    if(gap>0)label+='(再出入'+hours(gap)+'差し引き済み)';
+    if(isNightDuty)label+='(ナイト当番特例：再入以降は休憩なし全額残業)';
     details.push({text:d+'　'+label,warning:dayWarnings.length?'打刻ミスの可能性：\n'+dayWarnings.join('\n'):null,color:isHenkei?'#0645ad':null});
    }
    if(m>0)last=m;
