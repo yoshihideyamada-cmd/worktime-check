@@ -45,7 +45,7 @@ function startForWorkMinutes(end,workMinutes,p){
  }
  return start;
 }
-function show(title,u,details){
+function show(title,u,details,henkeiTotal){
  var rem=44.75-u/60;
  var old=document.getElementById('__zangyo_result');
  if(old)old.remove();
@@ -54,6 +54,7 @@ function show(title,u,details){
  var close=document.createElement('button');
  var heading=document.createElement('div');
  var total=document.createElement('div');
+ var henkeiSummary=document.createElement('div');
  var remaining=document.createElement('div');
  var detailButton=document.createElement('button');
  var detailBox=document.createElement('div');
@@ -70,6 +71,17 @@ function show(title,u,details){
  heading.style='font-weight:700;font-size:17px;margin-bottom:8px';
 
  total.textContent='残業合計：'+hours(u);
+
+ if(henkeiTotal){
+  var normalTotal=u-henkeiTotal;
+  var sign=henkeiTotal>=0?'+':'';
+  henkeiSummary.style='color:#0645ad;margin-top:6px;font-size:13px';
+  henkeiSummary.innerHTML=
+   '変形時差合計：'+sign+hours(henkeiTotal)+'（残業扱い）'+
+   (henkeiTotal<0?' <span style="color:#c00000;font-weight:700">⚠</span>':'')+
+   '<hr style="border:none;border-top:1px solid #bcd;margin:4px 0">'+
+   '残業　'+hours(normalTotal)+'　+　変形　'+sign+hours(henkeiTotal)+'　＝　合計　'+hours(u);
+ }
 
  remaining.textContent='45h超リミット＝44.75hまで残り：'+rem.toFixed(2)+'h';
  if(rem<10)remaining.style='color:#c00000;font-weight:700';
@@ -134,6 +146,7 @@ function show(title,u,details){
  box.appendChild(close);
  box.appendChild(heading);
  box.appendChild(total);
+ box.appendChild(henkeiSummary);
  box.appendChild(remaining);
  box.appendChild(detailButton);
  box.appendChild(warnLabel);
@@ -262,7 +275,6 @@ function runCalc(reasonMap){
    }else if(isHenkei){
     w=c(st,en,p);
     m=w-465;
-    if(m<0)dayWarnings.push('変形時差が基準時間(7.75h)に届いていません：実働'+hours(w));
    }else{
     w=c(st,en,p);
     need=(lv>0&&hasAttendance)?Math.max(0,465-lv):465;
@@ -288,11 +300,7 @@ function runCalc(reasonMap){
   }
  }
 
- if(henkeiTotal!==0){
-  details.push({text:'変形時差合計：'+(henkeiTotal>=0?'+':'')+hours(henkeiTotal),warning:'変形時差出勤の合計が±0になっていません。ペアの日を確認してください。',color:'#0645ad'});
- }
-
- show('社員用',u,details);
+ show('社員用',u,details,henkeiTotal);
 }
 
 async function run(){

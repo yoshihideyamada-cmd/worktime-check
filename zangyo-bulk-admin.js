@@ -80,11 +80,27 @@ function hideLoading(){
  if(old)old.remove();
 }
 
-function buildPersonDetailBox(details){
+function buildPersonDetailBox(details,total,henkeiTotal){
  var box=document.createElement('div');
  box.style='margin-top:4px;padding:8px;background:#f5f5f5;border:1px solid #ccc;font-size:12px;text-align:left;color:#000';
+
+ if(henkeiTotal){
+  var normalTotal=total-henkeiTotal;
+  var sign=henkeiTotal>=0?'+':'';
+  var henkeiSummary=document.createElement('div');
+  henkeiSummary.style='color:#0645ad;margin-bottom:6px';
+  henkeiSummary.innerHTML=
+   '変形時差合計：'+sign+hours(henkeiTotal)+'（残業扱い）'+
+   (henkeiTotal<0?' <span style="color:#c00000;font-weight:700">⚠</span>':'')+
+   '<hr style="border:none;border-top:1px solid #bcd;margin:4px 0">'+
+   '残業　'+hours(normalTotal)+'　+　変形　'+sign+hours(henkeiTotal)+'　＝　合計　'+hours(total);
+  box.appendChild(henkeiSummary);
+ }
+
  if(!details.length){
-  box.textContent='残業・調整はありません。';
+  var noneMsg=document.createElement('div');
+  noneMsg.textContent='残業・調整はありません。';
+  box.appendChild(noneMsg);
   return box;
  }
  var hasWarning=false;
@@ -165,7 +181,7 @@ function showSummary(path,scopeLabel,results){
 
   var detailRow=null;
   if(!r.error&&r.details){
-   var hasWarn=r.details.some(function(e){return e.warning;});
+   var hasWarn=r.details.some(function(e){return e.warning;})||(r.henkeiTotal&&r.henkeiTotal<0);
    var detailBtn=document.createElement('button');
    detailBtn.textContent='内訳';
    detailBtn.style='margin-left:8px;padding:1px 8px;font-size:11px';
@@ -174,7 +190,7 @@ function showSummary(path,scopeLabel,results){
    var detailTd=document.createElement('td');
    detailTd.colSpan=2;
    detailTd.style='padding:0 4px 8px 4px;border-bottom:1px solid #eee';
-   var detailBox=buildPersonDetailBox(r.details);
+   var detailBox=buildPersonDetailBox(r.details,r.total,r.henkeiTotal);
    detailBox.style.display='none';
    detailTd.appendChild(detailBox);
    detailRow=document.createElement('tr');
@@ -216,7 +232,7 @@ function showSummary(path,scopeLabel,results){
  });
 
  var legend=document.createElement('div');
- if(results.some(function(r){return r.details&&r.details.some(function(e){return e.warning;});})){
+ if(results.some(function(r){return(r.details&&r.details.some(function(e){return e.warning;}))||(r.henkeiTotal&&r.henkeiTotal<0);})){
   legend.textContent='[！]＝クリックで詳細表示';
   legend.style='color:#c00000;margin-top:10px;font-size:12px';
  }
@@ -362,7 +378,6 @@ function calcUserTotal(reasonMap,isManager){
    }else if(isHenkei){
     w=c(st,en,p);
     m=w-465;
-    if(m<0)dayWarnings.push('変形時差が基準時間(7.75h)に届いていません：実働'+hours(w));
    }else{
     w=c(st,en,p);
     need=(lv>0&&hasAttendance)?Math.max(0,465-lv):465;
@@ -388,11 +403,7 @@ function calcUserTotal(reasonMap,isManager){
   }
  }
 
- if(henkeiTotal!==0){
-  details.push({text:'変形時差合計：'+(henkeiTotal>=0?'+':'')+hours(henkeiTotal),warning:'変形時差出勤の合計が±0になっていません。ペアの日を確認してください。',color:'#0645ad'});
- }
-
- return{total:u,details:details};
+ return{total:u,details:details,henkeiTotal:henkeiTotal};
 }
 
 function clickExact(selector,text,root){
@@ -663,7 +674,7 @@ try{
   }
 
   var calcResult=calcUserTotal(reasonMap,isManagerRole(role));
-  results.push({name:name,role:role,total:calcResult.total,details:calcResult.details});
+  results.push({name:name,role:role,total:calcResult.total,details:calcResult.details,henkeiTotal:calcResult.henkeiTotal});
  }
 
  hideLoading();
