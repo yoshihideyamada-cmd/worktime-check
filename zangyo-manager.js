@@ -83,8 +83,9 @@ function show(title,u,details){
  detailButton.textContent='内訳';
  detailButton.style='margin-top:10px;padding:4px 14px';
 
+ var hasWarning=details.some(function(entry){return entry.warning;});
  var warnLabel=document.createElement('span');
- if(details.some(function(entry){return entry.warning;})){
+ if(hasWarning){
   warnLabel.textContent=' ⚠注意事項あり[！]';
   warnLabel.style='color:#c00000;font-weight:700;margin-left:8px';
  }
@@ -114,6 +115,12 @@ function show(title,u,details){
     detailBox.appendChild(line);
    }
   });
+  if(hasWarning){
+   var legend=document.createElement('div');
+   legend.textContent='[！]＝クリックで詳細表示';
+   legend.style='color:#c00000;margin-top:6px';
+   detailBox.appendChild(legend);
+  }
  }
 
  detailButton.onclick=function(){
@@ -122,8 +129,12 @@ function show(title,u,details){
   detailButton.textContent=open?'内訳':'内訳を閉じる';
  };
 
- notice.textContent='ノリで作成したので間違っているかもしれません。\nややこしい勤務形態には対応できていません。\n苦情・修正依頼は気分がいいときに受け付けます。山田\n※時間有給に対応しました。26/08/27\n[！]＝クリックで詳細表示';
+ notice.textContent='ノリで作成したので間違っているかもしれません。\nややこしい勤務形態には対応できていません。\n苦情・修正依頼は気分がいいときに受け付けます。山田';
  notice.style='white-space:pre-line;margin-top:12px';
+
+ var changelog=document.createElement('div');
+ changelog.textContent='※時間有給に対応しました。26/08/27';
+ changelog.style='color:#0645ad;margin-top:4px';
 
  box.appendChild(close);
  box.appendChild(heading);
@@ -133,6 +144,7 @@ function show(title,u,details){
  box.appendChild(warnLabel);
  box.appendChild(detailBox);
  box.appendChild(notice);
+ box.appendChild(changelog);
  document.body.appendChild(box);
 }
 

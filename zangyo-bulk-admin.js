@@ -142,14 +142,26 @@ function showSummary(path,scopeLabel,results){
   table.appendChild(tr);
  });
 
+ var legend=document.createElement('div');
+ if(results.some(function(r){return r.warnDays&&r.warnDays.length;})){
+  legend.textContent='[！]＝クリックで詳細表示';
+  legend.style='color:#c00000;margin-top:10px;font-size:12px';
+ }
+
  var notice=document.createElement('div');
- notice.textContent='ノリで作成したので間違っているかもしれません。\n係長以下＝社員用ロジック、課長以上＝課長用ロジック(深夜のみ)で自動判定しています。\n氏名をクリックするとその人のタイムカードを開けます。\n苦情・修正依頼は気分がいいときに受け付けます。山田\n※時間有給に対応しました。26/08/27\n[！]＝クリックで詳細表示';
+ notice.textContent='ノリで作成したので間違っているかもしれません。\n係長以下＝社員用ロジック、課長以上＝課長用ロジック(深夜のみ)で自動判定しています。\n氏名をクリックするとその人のタイムカードを開けます。\n苦情・修正依頼は気分がいいときに受け付けます。山田';
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
+
+ var changelog=document.createElement('div');
+ changelog.textContent='※時間有給に対応しました。26/08/27';
+ changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
  box.appendChild(heading);
  box.appendChild(table);
+ box.appendChild(legend);
  box.appendChild(notice);
+ box.appendChild(changelog);
  document.body.appendChild(box);
 }
 
