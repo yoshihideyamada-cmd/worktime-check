@@ -84,19 +84,6 @@ function buildPersonDetailBox(details,total,henkeiTotal){
  var box=document.createElement('div');
  box.style='margin-top:4px;padding:8px;background:#f5f5f5;border:1px solid #ccc;font-size:12px;text-align:left;color:#000';
 
- if(henkeiTotal){
-  var normalTotal=total-henkeiTotal;
-  var sign=henkeiTotal>=0?'+':'';
-  var henkeiSummary=document.createElement('div');
-  henkeiSummary.style='color:#0645ad;margin-bottom:6px';
-  henkeiSummary.innerHTML=
-   '変形時差合計：'+sign+hours(henkeiTotal)+'（残業扱い）'+
-   (henkeiTotal<0?' <span style="color:#c00000;font-weight:700">⚠</span>':'')+
-   '<hr style="border:none;border-top:1px solid #bcd;margin:4px 0">'+
-   '残業　'+hours(normalTotal)+'　+　変形　'+sign+hours(henkeiTotal)+'　＝　合計　'+hours(total);
-  box.appendChild(henkeiSummary);
- }
-
  if(!details.length){
   var noneMsg=document.createElement('div');
   noneMsg.textContent='残業・調整はありません。';
@@ -128,6 +115,18 @@ function buildPersonDetailBox(details,total,henkeiTotal){
    box.appendChild(line);
   }
  });
+ if(henkeiTotal){
+  var normalTotal=total-henkeiTotal;
+  var sign=henkeiTotal>=0?'+':'';
+  var henkeiSummary=document.createElement('div');
+  henkeiSummary.style='color:#0645ad;margin-top:8px';
+  henkeiSummary.innerHTML=
+   '変形時差合計：'+sign+hours(henkeiTotal)+'（残業扱い）'+
+   (henkeiTotal<0?' <span style="color:#c00000;font-weight:700">⚠</span>':'')+
+   '<hr style="border:none;border-top:1px solid #bcd;margin:4px 0">'+
+   '残業　'+hours(normalTotal)+'　+　変形　'+sign+hours(henkeiTotal)+'　＝　合計　'+hours(total);
+  box.appendChild(henkeiSummary);
+ }
  if(hasWarning){
   var legend=document.createElement('div');
   legend.textContent='[！]＝クリックで詳細表示';

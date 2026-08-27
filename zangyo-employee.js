@@ -72,17 +72,6 @@ function show(title,u,details,henkeiTotal){
 
  total.textContent='残業合計：'+hours(u);
 
- if(henkeiTotal){
-  var normalTotal=u-henkeiTotal;
-  var sign=henkeiTotal>=0?'+':'';
-  henkeiSummary.style='color:#0645ad;margin-top:6px;font-size:13px';
-  henkeiSummary.innerHTML=
-   '変形時差合計：'+sign+hours(henkeiTotal)+'（残業扱い）'+
-   (henkeiTotal<0?' <span style="color:#c00000;font-weight:700">⚠</span>':'')+
-   '<hr style="border:none;border-top:1px solid #bcd;margin:4px 0">'+
-   '残業　'+hours(normalTotal)+'　+　変形　'+sign+hours(henkeiTotal)+'　＝　合計　'+hours(u);
- }
-
  remaining.textContent='45h超リミット＝44.75hまで残り：'+rem.toFixed(2)+'h';
  if(rem<10)remaining.style='color:#c00000;font-weight:700';
 
@@ -122,6 +111,17 @@ function show(title,u,details,henkeiTotal){
     detailBox.appendChild(line);
    }
   });
+  if(henkeiTotal){
+   var normalTotal=u-henkeiTotal;
+   var sign=henkeiTotal>=0?'+':'';
+   henkeiSummary.style='color:#0645ad;margin-top:8px';
+   henkeiSummary.innerHTML=
+    '変形時差合計：'+sign+hours(henkeiTotal)+'（残業扱い）'+
+    (henkeiTotal<0?' <span style="color:#c00000;font-weight:700">⚠</span>':'')+
+    '<hr style="border:none;border-top:1px solid #bcd;margin:4px 0">'+
+    '残業　'+hours(normalTotal)+'　+　変形　'+sign+hours(henkeiTotal)+'　＝　合計　'+hours(u);
+   detailBox.appendChild(henkeiSummary);
+  }
   if(hasWarning){
    var legend=document.createElement('div');
    legend.textContent='[！]＝クリックで詳細表示';
@@ -146,7 +146,6 @@ function show(title,u,details,henkeiTotal){
  box.appendChild(close);
  box.appendChild(heading);
  box.appendChild(total);
- box.appendChild(henkeiSummary);
  box.appendChild(remaining);
  box.appendChild(detailButton);
  box.appendChild(warnLabel);
