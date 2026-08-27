@@ -406,7 +406,7 @@ function calcUserTotal(reasonMap,isManager,gapMap){
     w=c(ea<0?os:ea,oe,p)-gap;
     if(w<0)w=0;
     m=/代付/.test(j)?Math.max(0,w-465):w;
-   }else if(isNightDuty=/ナイト当番/.test(j)&&gapPairs.length>0){
+   }else if(isNightDuty=/ナイト当番|緊急/.test(j)&&gapPairs.length>0){
     var nFirstExit=gapPairs[0][0];
     var nLastReentry=gapPairs[gapPairs.length-1][1];
     var nNormal=isManager?night(st,nFirstExit,p):Math.max(0,c(st,nFirstExit,p)-465);
