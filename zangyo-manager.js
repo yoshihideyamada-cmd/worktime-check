@@ -83,6 +83,12 @@ function show(title,u,details){
  detailButton.textContent='内訳';
  detailButton.style='margin-top:10px;padding:4px 14px';
 
+ var warnLabel=document.createElement('span');
+ if(details.some(function(entry){return entry.warning;})){
+  warnLabel.textContent=' ⚠注意事項あり[！]';
+  warnLabel.style='color:#c00000;font-weight:700;margin-left:8px';
+ }
+
  detailBox.style='display:none;margin-top:8px;padding:8px;background:#f5f5f5;border:1px solid #ccc;font-size:13px';
  if(!details.length){
   detailBox.textContent='残業・調整はありません。';
@@ -124,6 +130,7 @@ function show(title,u,details){
  box.appendChild(total);
  box.appendChild(remaining);
  box.appendChild(detailButton);
+ box.appendChild(warnLabel);
  box.appendChild(detailBox);
  box.appendChild(notice);
  document.body.appendChild(box);
