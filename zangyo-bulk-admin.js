@@ -29,6 +29,10 @@ function leaveMinutes(j){
 }
 function roundUp15(min){return Math.ceil(min/15)*15;}
 function roundDown15(min){return Math.floor(min/15)*15;}
+function fmt(min){
+ min=(min%1440+1440)%1440;
+ return String(Math.floor(min/60)).padStart(2,'0')+':'+String(min%60).padStart(2,'0');
+}
 function isManagerRole(role){
  return /部長|課長|次長|本部長|取締役|社長|工場長|所長/.test(role||'');
 }
@@ -236,7 +240,9 @@ function calcUserTotal(reasonMap,isManager){
    }else{
     w=c(st,en,p);
     need=Math.max(0,465-lv);
-    if(w<need)warnDays.push(d);
+    if(w<need)warnDays.push(d+'(実働+有給不足)');
+    if(lv>0&&ea<0&&actualIn>=0&&roundUp15(actualIn)!==540+lv)warnDays.push(d+'(有給終了予定'+fmt(540+lv)+'≠出勤'+fmt(roundUp15(actualIn))+')');
+    if(lv>0&&er<0&&actualOut>=0&&roundDown15(actualOut)!==1050-lv)warnDays.push(d+'(退勤'+fmt(roundDown15(actualOut))+'≠有給開始予定'+fmt(1050-lv)+')');
     m=Math.max(0,w-need);
    }
 

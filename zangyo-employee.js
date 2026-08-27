@@ -23,6 +23,10 @@ function leaveMinutes(j){
 }
 function roundUp15(min){return Math.ceil(min/15)*15;}
 function roundDown15(min){return Math.floor(min/15)*15;}
+function fmt(min){
+ min=(min%1440+1440)%1440;
+ return String(Math.floor(min/60)).padStart(2,'0')+':'+String(min%60).padStart(2,'0');
+}
 function show(title,u,details){
  var rem=44.75-u/60;
  var old=document.getElementById('__zangyo_result');
@@ -189,6 +193,12 @@ function runCalc(reasonMap){
     w=c(st,en,p);
     need=Math.max(0,465-lv);
     if(w<need)details.push(d+'　⚠実働+有給が7.75hに届きません(打刻ミスの可能性)：実働'+hours(w)+'＋有給'+hours(lv)+'＝'+hours(w+lv));
+    if(lv>0&&ea<0&&actualIn>=0&&roundUp15(actualIn)!==540+lv){
+     details.push(d+'　⚠有給終了予定('+fmt(540+lv)+')と出勤時刻('+fmt(roundUp15(actualIn))+')が一致しません(打刻ミスの可能性)');
+    }
+    if(lv>0&&er<0&&actualOut>=0&&roundDown15(actualOut)!==1050-lv){
+     details.push(d+'　⚠退勤時刻('+fmt(roundDown15(actualOut))+')と有給開始予定('+fmt(1050-lv)+')が一致しません(打刻ミスの可能性)');
+    }
     m=Math.max(0,w-need);
    }
 
