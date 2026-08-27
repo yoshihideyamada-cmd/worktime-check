@@ -80,6 +80,45 @@ function hideLoading(){
  if(old)old.remove();
 }
 
+function buildPersonDetailBox(details){
+ var box=document.createElement('div');
+ box.style='margin-top:4px;padding:8px;background:#f5f5f5;border:1px solid #ccc;font-size:12px;text-align:left;color:#000';
+ if(!details.length){
+  box.textContent='残業・調整はありません。';
+  return box;
+ }
+ var hasWarning=false;
+ details.forEach(function(entry){
+  var line=document.createElement('div');
+  line.textContent=entry.text;
+  if(entry.warning){
+   hasWarning=true;
+   var mark=document.createElement('span');
+   mark.textContent=' [!]';
+   mark.title='クリックで詳細表示';
+   mark.style='color:#c00000;font-weight:700;cursor:pointer';
+   var warnBox=document.createElement('div');
+   warnBox.textContent='⚠ '+entry.warning;
+   warnBox.style='display:none;color:#c00000;white-space:pre-line;margin:2px 0 6px 12px;font-size:12px';
+   mark.onclick=function(e){
+    e.stopPropagation();
+    warnBox.style.display=warnBox.style.display==='none'?'block':'none';
+   };
+   line.appendChild(mark);
+   box.appendChild(line);
+   box.appendChild(warnBox);
+  }else{
+   box.appendChild(line);
+  }
+ });
+ if(hasWarning){
+  var legend=document.createElement('div');
+  legend.textContent='[！]＝クリックで詳細表示';
+  legend.style='color:#c00000;margin-top:6px';
+  box.appendChild(legend);
+ }
+ return box;
+}
 function showSummary(path,scopeLabel,results){
  var old=document.getElementById('__zangyo_result');
  if(old)old.remove();
@@ -106,44 +145,77 @@ function showSummary(path,scopeLabel,results){
  results.forEach(function(r){
   var tr=document.createElement('tr');
   var tdName=document.createElement('td');
-  tdName.style='padding:4px;border-bottom:1px solid #eee;color:#0645ad;text-decoration:underline;cursor:pointer';
-  tdName.textContent=r.name+(isManagerRole(r.role)?'('+r.role+')':'');
-  tdName.title='クリックでこの人のタイムカードを開く';
-  tdName.onclick=async function(){
+  tdName.style='padding:4px;border-bottom:1px solid #eee';
+
+  var nameLink=document.createElement('span');
+  nameLink.textContent=r.name+(isManagerRole(r.role)?'('+r.role+')':'');
+  nameLink.style='color:#0645ad;text-decoration:underline;cursor:pointer';
+  nameLink.title='クリックでこの人のタイムカードを開く';
+  nameLink.onclick=async function(){
    showLoading(r.name+'のタイムカードを開いています...');
    var failReason=await navigateToUser(path,r.name);
    hideLoading();
    if(failReason)alert(r.name+'の画面を開けませんでした:\n'+failReason);
   };
+  tdName.appendChild(nameLink);
+
   var tdVal=document.createElement('td');
   tdVal.style='padding:4px;border-bottom:1px solid #eee;text-align:right';
-  if(r.error){
-   tdVal.textContent=r.error;
-   tdVal.style.color='#c00000';
-  }else{
-   tdVal.textContent=hours(r.total);
-   if(r.total/60>34.75)tdVal.style.color='#c00000';
-   if(r.warnDays&&r.warnDays.length){
+
+  var detailRow=null;
+  if(!r.error&&r.details){
+   var hasWarn=r.details.some(function(e){return e.warning;});
+   var detailBtn=document.createElement('button');
+   detailBtn.textContent='内訳';
+   detailBtn.style='margin-left:8px;padding:1px 8px;font-size:11px';
+   tdName.appendChild(detailBtn);
+
+   var detailTd=document.createElement('td');
+   detailTd.colSpan=2;
+   detailTd.style='padding:0 4px 8px 4px;border-bottom:1px solid #eee';
+   var detailBox=buildPersonDetailBox(r.details);
+   detailBox.style.display='none';
+   detailTd.appendChild(detailBox);
+   detailRow=document.createElement('tr');
+   detailRow.appendChild(detailTd);
+
+   var toggleDetail=function(){
+    var open=detailBox.style.display!=='none';
+    detailBox.style.display=open?'none':'block';
+    detailBtn.textContent=open?'内訳':'内訳を閉じる';
+   };
+   detailBtn.onclick=toggleDetail;
+
+   if(hasWarn){
     var mark=document.createElement('span');
     mark.textContent=' [!]';
     mark.title='クリックで詳細表示';
     mark.style='color:#c00000;font-weight:700;cursor:pointer';
-    mark.onclick=function(days){
-     return function(e){
-      e.stopPropagation();
-      alert('打刻ミスの可能性：\n'+days.join('\n'));
-     };
-    }(r.warnDays);
+    mark.onclick=function(e){
+     e.stopPropagation();
+     toggleDetail();
+    };
+    tdVal.appendChild(document.createTextNode(hours(r.total)));
     tdVal.appendChild(mark);
    }
   }
+
+  if(r.error){
+   tdVal.textContent=r.error;
+   tdVal.style.color='#c00000';
+  }else if(!tdVal.hasChildNodes()){
+   tdVal.textContent=hours(r.total);
+  }
+  if(!r.error&&r.total/60>34.75)tdVal.style.color='#c00000';
+
   tr.appendChild(tdName);
   tr.appendChild(tdVal);
   table.appendChild(tr);
+  if(detailRow)table.appendChild(detailRow);
  });
 
  var legend=document.createElement('div');
- if(results.some(function(r){return r.warnDays&&r.warnDays.length;})){
+ if(results.some(function(r){return r.details&&r.details.some(function(e){return e.warning;});})){
   legend.textContent='[！]＝クリックで詳細表示';
   legend.style='color:#c00000;margin-top:10px;font-size:12px';
  }
@@ -238,18 +310,21 @@ function buildReasonMap(tb){
 function calcUserTotal(reasonMap,isManager){
  var mainTable=findMainTable()||document.getElementsByTagName('table')[2];
  var R=mainTable.rows;
- var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,lateStart,earlyEnd,warnDays=[];
+ var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,lateStart,earlyEnd,hasAttendance,dayWarnings;
+ var details=[];
 
  for(i=1;i<R.length;i++){
   v=R[i].cells;
   if(v.length>10&&/^\d\d月\d\d日/.test(d=g(v[0]))){
    j=g(v[2]);
    if(reasonMap&&reasonMap[d])j+=' / '+reasonMap[d];
+   dayWarnings=[];
 
    if(/振替休日/.test(j)){
     sub=Math.min(last,465);
     u-=sub;
     last-=sub;
+    if(sub!==0)details.push({text:d+'　振替休日調整：-'+hours(sub)});
     continue;
    }
 
@@ -267,6 +342,7 @@ function calcUserTotal(reasonMap,isManager){
    lv=leaveMinutes(j);
    lateStart=lv>0&&ea<0&&actualIn>=0&&actualIn>540+30;
    earlyEnd=lv>0&&er<0&&actualOut>=0&&actualOut<1050-30;
+   hasAttendance=ea>=0||er>=0||actualIn>=0||actualOut>=0;
 
    p=(ea>=0?ea:540)>734;
    st=ea>=0?ea:(lateStart?roundUp15(actualIn):540);
@@ -280,25 +356,26 @@ function calcUserTotal(reasonMap,isManager){
     m=night(st,en,p);
    }else{
     w=c(st,en,p);
-    need=Math.max(0,465-lv);
-    if(w<need)warnDays.push(d+'(実働+有給不足)');
+    need=(lv>0&&hasAttendance)?Math.max(0,465-lv):465;
+    if(w<need)dayWarnings.push('実働+有給が7.75hに届きません：実働'+hours(w)+'＋有給'+hours(lv)+'＝'+hours(w+lv));
     if(lateStart){
      expected=endForWorkMinutes(540,lv,p);
-     if(roundUp15(actualIn)!==expected)warnDays.push(d+'(有給終了予定'+fmt(expected)+'≠出勤'+fmt(roundUp15(actualIn))+')');
+     if(roundUp15(actualIn)!==expected)dayWarnings.push('有給終了予定('+fmt(expected)+')と出勤時刻('+fmt(roundUp15(actualIn))+')が一致しません');
     }
     if(earlyEnd){
      expected=startForWorkMinutes(1050,lv,p);
-     if(roundDown15(actualOut)!==expected)warnDays.push(d+'(退勤'+fmt(roundDown15(actualOut))+'≠有給開始予定'+fmt(expected)+')');
+     if(roundDown15(actualOut)!==expected)dayWarnings.push('退勤時刻('+fmt(roundDown15(actualOut))+')と有給開始予定('+fmt(expected)+')が一致しません');
     }
     m=Math.max(0,w-need);
    }
 
    u+=m;
+   if(m!==0||dayWarnings.length)details.push({text:d+'　残業：'+hours(m),warning:dayWarnings.length?'打刻ミスの可能性：\n'+dayWarnings.join('\n'):null});
    if(m>0)last=m;
   }
  }
 
- return{total:u,warnDays:warnDays};
+ return{total:u,details:details};
 }
 
 function clickExact(selector,text,root){
@@ -569,7 +646,7 @@ try{
   }
 
   var calcResult=calcUserTotal(reasonMap,isManagerRole(role));
-  results.push({name:name,role:role,total:calcResult.total,warnDays:calcResult.warnDays});
+  results.push({name:name,role:role,total:calcResult.total,details:calcResult.details});
  }
 
  hideLoading();

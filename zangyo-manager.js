@@ -218,7 +218,7 @@ function buildReasonMap(tb){
 function runCalc(reasonMap){
  var mainTable=findMainTable()||document.getElementsByTagName('table')[2];
  var R=mainTable.rows;
- var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,dayWarnings,lateStart,earlyEnd;
+ var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,dayWarnings,lateStart,earlyEnd,hasAttendance;
  var details=[];
 
  for(i=1;i<R.length;i++){
@@ -250,6 +250,7 @@ function runCalc(reasonMap){
    lv=leaveMinutes(j);
    lateStart=lv>0&&ea<0&&actualIn>=0&&actualIn>540+30;
    earlyEnd=lv>0&&er<0&&actualOut>=0&&actualOut<1050-30;
+   hasAttendance=ea>=0||er>=0||actualIn>=0||actualOut>=0;
 
    p=(ea>=0?ea:540)>734;
    st=ea>=0?ea:(lateStart?roundUp15(actualIn):540);
@@ -261,7 +262,7 @@ function runCalc(reasonMap){
     m=/代付/.test(j)?Math.max(0,w-465):w;
    }else{
     w=c(st,en,p);
-    need=Math.max(0,465-lv);
+    need=(lv>0&&hasAttendance)?Math.max(0,465-lv):465;
     if(w<need)dayWarnings.push('実働+有給が7.75hに届きません：実働'+hours(w)+'＋有給'+hours(lv)+'＝'+hours(w+lv));
     if(lateStart){
      expected=endForWorkMinutes(540,lv,p);
