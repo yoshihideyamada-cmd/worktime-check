@@ -124,8 +124,17 @@ function showSummary(path,scopeLabel,results){
    tdVal.textContent=hours(r.total);
    if(r.total/60>34.75)tdVal.style.color='#c00000';
    if(r.warnDays&&r.warnDays.length){
-    tdVal.textContent+=' ⚠';
-    tdVal.title='打刻ミスの可能性(実働+有給が7.75hに届かない日):\n'+r.warnDays.join('\n');
+    var mark=document.createElement('span');
+    mark.textContent=' [!]';
+    mark.title='クリックで詳細表示';
+    mark.style='color:#c00000;font-weight:700;cursor:pointer';
+    mark.onclick=function(days){
+     return function(e){
+      e.stopPropagation();
+      alert('打刻ミスの可能性：\n'+days.join('\n'));
+     };
+    }(r.warnDays);
+    tdVal.appendChild(mark);
    }
   }
   tr.appendChild(tdName);
@@ -134,7 +143,7 @@ function showSummary(path,scopeLabel,results){
  });
 
  var notice=document.createElement('div');
- notice.textContent='ノリで作成したので間違っているかもしれません。\n係長以下＝社員用ロジック、課長以上＝課長用ロジック(深夜のみ)で自動判定しています。\n氏名をクリックするとその人のタイムカードを開けます。\n苦情・修正依頼は気分がいいときに受け付けます。山田';
+ notice.textContent='ノリで作成したので間違っているかもしれません。\n係長以下＝社員用ロジック、課長以上＝課長用ロジック(深夜のみ)で自動判定しています。\n氏名をクリックするとその人のタイムカードを開けます。\n苦情・修正依頼は気分がいいときに受け付けます。山田\n※時間有給に対応しました。26/08/27';
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  box.appendChild(close);

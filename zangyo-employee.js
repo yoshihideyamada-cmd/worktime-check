@@ -110,7 +110,7 @@ function show(title,u,details){
   detailButton.textContent=open?'内訳':'内訳を閉じる';
  };
 
- notice.textContent='ノリで作成したので間違っているかもしれません。\nややこしい勤務形態には対応できていません。\n苦情・修正依頼は気分がいいときに受け付けます。山田';
+ notice.textContent='ノリで作成したので間違っているかもしれません。\nややこしい勤務形態には対応できていません。\n苦情・修正依頼は気分がいいときに受け付けます。山田\n※時間有給に対応しました。26/08/27';
  notice.style='white-space:pre-line;margin-top:12px';
 
  box.appendChild(close);
