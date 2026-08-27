@@ -213,13 +213,11 @@ function buildReasonMap(tb){
   if(cells.length>10&&/^\d\d月\d\d日/.test(g(cells[0]))){
    var d=g(cells[0]);
    var reasons=[];
-   var kubun=cells[2]?g(cells[2]).trim():'';
-   if(kubun)reasons.push(kubun);
    for(var ci=4;ci<=8;ci++){
     var txt=cells[ci]?g(cells[ci]).trim():'';
     if(txt)reasons.push(txt);
    }
-   map[d]=reasons.join(' / ');
+   map[d]={reasons:reasons.join(' / '),kubun:cells[2]?g(cells[2]).trim():''};
   }
  }
  return map;
@@ -228,14 +226,18 @@ function buildReasonMap(tb){
 function runCalc(reasonMap){
  var mainTable=findMainTable()||document.getElementsByTagName('table')[2];
  var R=mainTable.rows;
- var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,dayWarnings,lateStart,earlyEnd,hasAttendance,isHenkei,henkeiTotal=0;
+ var u=0,last=0,i,v,d,j,kubun,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,dayWarnings,lateStart,earlyEnd,hasAttendance,isHenkei,henkeiTotal=0;
  var details=[];
 
  for(i=1;i<R.length;i++){
   v=R[i].cells;
   if(v.length>10&&/^\d\d月\d\d日/.test(d=g(v[0]))){
    j=g(v[2]);
-   if(reasonMap&&reasonMap[d])j+=' / '+reasonMap[d];
+   kubun='';
+   if(reasonMap&&reasonMap[d]){
+    if(reasonMap[d].reasons)j+=' / '+reasonMap[d].reasons;
+    kubun=reasonMap[d].kubun||'';
+   }
    dayWarnings=[];
    isHenkei=false;
 
@@ -259,7 +261,7 @@ function runCalc(reasonMap){
    actualIn=t(g(v[5]));
    actualOut=t(g(v[6]));
    lv=leaveMinutes(j);
-   isHenkei=/変形/.test(j);
+   isHenkei=/変形/.test(kubun);
    lateStart=lv>0&&ea<0&&actualIn>=0&&actualIn>540+30;
    earlyEnd=lv>0&&er<0&&actualOut>=0&&actualOut<1050-30;
    hasAttendance=ea>=0||er>=0||actualIn>=0||actualOut>=0;

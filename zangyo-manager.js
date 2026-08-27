@@ -205,13 +205,11 @@ function buildReasonMap(tb){
   if(cells.length>10&&/^\d\d月\d\d日/.test(g(cells[0]))){
    var d=g(cells[0]);
    var reasons=[];
-   var kubun=cells[2]?g(cells[2]).trim():'';
-   if(kubun)reasons.push(kubun);
    for(var ci=4;ci<=8;ci++){
     var txt=cells[ci]?g(cells[ci]).trim():'';
     if(txt)reasons.push(txt);
    }
-   map[d]=reasons.join(' / ');
+   map[d]={reasons:reasons.join(' / '),kubun:cells[2]?g(cells[2]).trim():''};
   }
  }
  return map;
@@ -227,7 +225,7 @@ function runCalc(reasonMap){
   v=R[i].cells;
   if(v.length>10&&/^\d\d月\d\d日/.test(d=g(v[0]))){
    j=g(v[2]);
-   if(reasonMap&&reasonMap[d])j+=' / '+reasonMap[d];
+   if(reasonMap&&reasonMap[d]&&reasonMap[d].reasons)j+=' / '+reasonMap[d].reasons;
    dayWarnings=[];
    isHenkei=false;
 
