@@ -431,7 +431,7 @@ function calcUserTotal(reasonMap,isManager,gapMap){
    if(isHenkei)henkeiTotal+=m;
    if(m!==0||dayWarnings.length){
     var label=isHenkei?'変形：'+(m>=0?'+':'')+hours(m):'残業：'+hours(m);
-    if(gap>0)label+='(抜け'+hours(gap)+'差引済)';
+    if(gap>0)label+='(抜け→再入'+hours(gap)+'差引済)';
     details.push({text:d+'　'+label,warning:dayWarnings.length?'打刻ミスの可能性：\n'+dayWarnings.join('\n'):null,color:isHenkei?'#0645ad':null});
    }
    if(m>0)last=m;
