@@ -323,7 +323,7 @@ function runCalc(reasonMap,gapMap){
    if(m!==0||dayWarnings.length){
     var label='残業：'+hours(m);
     if(gap>0)label+='(再出入'+hours(gap)+'差し引き済み)';
-    if(isNightDuty)label+='(ナイト当番特例：再入以降は休憩なし全額残業)';
+    if(isNightDuty)label+='(ナイト'+hours(nDuty)+')';
     details.push({text:d+'　'+label,warning:dayWarnings.length?'打刻ミスの可能性：\n'+dayWarnings.join('\n'):null});
    }
    if(m>0)last=m;
