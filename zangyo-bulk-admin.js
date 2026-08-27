@@ -226,7 +226,7 @@ function buildReasonMap(tb){
 function calcUserTotal(reasonMap,isManager){
  var mainTable=findMainTable()||document.getElementsByTagName('table')[2];
  var R=mainTable.rows;
- var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,warnDays=[];
+ var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,lateStart,earlyEnd,warnDays=[];
 
  for(i=1;i<R.length;i++){
   v=R[i].cells;
@@ -253,10 +253,12 @@ function calcUserTotal(reasonMap,isManager){
    actualIn=t(g(v[5]));
    actualOut=t(g(v[6]));
    lv=leaveMinutes(j);
+   lateStart=lv>0&&ea<0&&actualIn>=0&&actualIn>540+30;
+   earlyEnd=lv>0&&er<0&&actualOut>=0&&actualOut<1050-30;
 
    p=(ea>=0?ea:540)>734;
-   st=ea>=0?ea:(lv>0&&actualIn>=0?roundUp15(actualIn):540);
-   en=er>=0?er:(lv>0&&actualOut>=0?roundDown15(actualOut):(wait&&oe0>=0?oe0:1050));
+   st=ea>=0?ea:(lateStart?roundUp15(actualIn):540);
+   en=er>=0?er:(earlyEnd?roundDown15(actualOut):(wait&&oe0>=0?oe0:1050));
 
    if(/\(土\)|\(日\)|休日|出勤登録/.test(d+j)){
     w=c(ea<0?os:ea,oe,p);
@@ -268,11 +270,11 @@ function calcUserTotal(reasonMap,isManager){
     w=c(st,en,p);
     need=Math.max(0,465-lv);
     if(w<need)warnDays.push(d+'(実働+有給不足)');
-    if(lv>0&&ea<0&&actualIn>=0){
+    if(lateStart){
      expected=endForWorkMinutes(540,lv,p);
      if(roundUp15(actualIn)!==expected)warnDays.push(d+'(有給終了予定'+fmt(expected)+'≠出勤'+fmt(roundUp15(actualIn))+')');
     }
-    if(lv>0&&er<0&&actualOut>=0){
+    if(earlyEnd){
      expected=startForWorkMinutes(1050,lv,p);
      if(roundDown15(actualOut)!==expected)warnDays.push(d+'(退勤'+fmt(roundDown15(actualOut))+'≠有給開始予定'+fmt(expected)+')');
     }

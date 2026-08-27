@@ -200,7 +200,7 @@ function buildReasonMap(tb){
 function runCalc(reasonMap){
  var mainTable=findMainTable()||document.getElementsByTagName('table')[2];
  var R=mainTable.rows;
- var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,dayWarnings;
+ var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,dayWarnings,lateStart,earlyEnd;
  var details=[];
 
  for(i=1;i<R.length;i++){
@@ -230,10 +230,12 @@ function runCalc(reasonMap){
    actualIn=t(g(v[5]));
    actualOut=t(g(v[6]));
    lv=leaveMinutes(j);
+   lateStart=lv>0&&ea<0&&actualIn>=0&&actualIn>540+30;
+   earlyEnd=lv>0&&er<0&&actualOut>=0&&actualOut<1050-30;
 
    p=(ea>=0?ea:540)>734;
-   st=ea>=0?ea:(lv>0&&actualIn>=0?roundUp15(actualIn):540);
-   en=er>=0?er:(lv>0&&actualOut>=0?roundDown15(actualOut):(wait&&oe0>=0?oe0:1050));
+   st=ea>=0?ea:(lateStart?roundUp15(actualIn):540);
+   en=er>=0?er:(earlyEnd?roundDown15(actualOut):(wait&&oe0>=0?oe0:1050));
 
    if(/\(土\)|\(日\)|休日|出勤登録/.test(d+j)){
     w=c(ea<0?os:ea,oe,p);
@@ -243,11 +245,11 @@ function runCalc(reasonMap){
     w=c(st,en,p);
     need=Math.max(0,465-lv);
     if(w<need)dayWarnings.push('実働+有給が7.75hに届きません：実働'+hours(w)+'＋有給'+hours(lv)+'＝'+hours(w+lv));
-    if(lv>0&&ea<0&&actualIn>=0){
+    if(lateStart){
      expected=endForWorkMinutes(540,lv,p);
      if(roundUp15(actualIn)!==expected)dayWarnings.push('有給終了予定('+fmt(expected)+')と出勤時刻('+fmt(roundUp15(actualIn))+')が一致しません');
     }
-    if(lv>0&&er<0&&actualOut>=0){
+    if(earlyEnd){
      expected=startForWorkMinutes(1050,lv,p);
      if(roundDown15(actualOut)!==expected)dayWarnings.push('退勤時刻('+fmt(roundDown15(actualOut))+')と有給開始予定('+fmt(expected)+')が一致しません');
     }
