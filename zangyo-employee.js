@@ -77,8 +77,32 @@ function show(title,u,details){
  detailButton.textContent='内訳';
  detailButton.style='margin-top:10px;padding:4px 14px';
 
- detailBox.textContent=details.length?details.join('\n'):'残業・調整はありません。';
- detailBox.style='display:none;white-space:pre-line;margin-top:8px;padding:8px;background:#f5f5f5;border:1px solid #ccc;font-size:13px';
+ detailBox.style='display:none;margin-top:8px;padding:8px;background:#f5f5f5;border:1px solid #ccc;font-size:13px';
+ if(!details.length){
+  detailBox.textContent='残業・調整はありません。';
+ }else{
+  details.forEach(function(entry){
+   var line=document.createElement('div');
+   line.textContent=entry.text;
+   if(entry.warning){
+    var mark=document.createElement('span');
+    mark.textContent=' [!]';
+    mark.title='クリックで詳細表示';
+    mark.style='color:#c00000;font-weight:700;cursor:pointer';
+    var warnBox=document.createElement('div');
+    warnBox.textContent='⚠ '+entry.warning;
+    warnBox.style='display:none;color:#c00000;white-space:pre-line;margin:2px 0 6px 12px;font-size:12px';
+    mark.onclick=function(){
+     warnBox.style.display=warnBox.style.display==='none'?'block':'none';
+    };
+    line.appendChild(mark);
+    detailBox.appendChild(line);
+    detailBox.appendChild(warnBox);
+   }else{
+    detailBox.appendChild(line);
+   }
+  });
+ }
 
  detailButton.onclick=function(){
   var open=detailBox.style.display!=='none';
@@ -169,7 +193,7 @@ function buildReasonMap(tb){
 function runCalc(reasonMap){
  var mainTable=findMainTable()||document.getElementsByTagName('table')[2];
  var R=mainTable.rows;
- var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected;
+ var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,dayWarnings;
  var details=[];
 
  for(i=1;i<R.length;i++){
@@ -177,12 +201,13 @@ function runCalc(reasonMap){
   if(v.length>10&&/^\d\d月\d\d日/.test(d=g(v[0]))){
    j=g(v[2]);
    if(reasonMap&&reasonMap[d])j+=' / '+reasonMap[d];
+   dayWarnings=[];
 
    if(/振替休日/.test(j)){
     sub=Math.min(last,465);
     u-=sub;
     last-=sub;
-    if(sub!==0)details.push(d+'　振替休日調整：-'+hours(sub));
+    if(sub!==0)details.push({text:d+'　振替休日調整：-'+hours(sub)});
     continue;
    }
 
@@ -210,20 +235,20 @@ function runCalc(reasonMap){
    }else{
     w=c(st,en,p);
     need=Math.max(0,465-lv);
-    if(w<need)details.push(d+'　⚠実働+有給が7.75hに届きません(打刻ミスの可能性)：実働'+hours(w)+'＋有給'+hours(lv)+'＝'+hours(w+lv));
+    if(w<need)dayWarnings.push('実働+有給が7.75hに届きません：実働'+hours(w)+'＋有給'+hours(lv)+'＝'+hours(w+lv));
     if(lv>0&&ea<0&&actualIn>=0){
      expected=endForWorkMinutes(540,lv,p);
-     if(roundUp15(actualIn)!==expected)details.push(d+'　⚠有給終了予定('+fmt(expected)+')と出勤時刻('+fmt(roundUp15(actualIn))+')が一致しません(打刻ミスの可能性)');
+     if(roundUp15(actualIn)!==expected)dayWarnings.push('有給終了予定('+fmt(expected)+')と出勤時刻('+fmt(roundUp15(actualIn))+')が一致しません');
     }
     if(lv>0&&er<0&&actualOut>=0){
      expected=startForWorkMinutes(1050,lv,p);
-     if(roundDown15(actualOut)!==expected)details.push(d+'　⚠退勤時刻('+fmt(roundDown15(actualOut))+')と有給開始予定('+fmt(expected)+')が一致しません(打刻ミスの可能性)');
+     if(roundDown15(actualOut)!==expected)dayWarnings.push('退勤時刻('+fmt(roundDown15(actualOut))+')と有給開始予定('+fmt(expected)+')が一致しません');
     }
     m=Math.max(0,w-need);
    }
 
    u+=m;
-   if(m!==0)details.push(d+'　残業：'+hours(m));
+   if(m!==0||dayWarnings.length)details.push({text:d+'　残業：'+hours(m),warning:dayWarnings.length?'打刻ミスの可能性：\n'+dayWarnings.join('\n'):null});
    if(m>0)last=m;
   }
  }
