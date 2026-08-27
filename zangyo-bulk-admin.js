@@ -23,6 +23,12 @@ function night(s,e,p){
 function hours(minutes){
  return (minutes/60).toFixed(2)+'h';
 }
+function leaveMinutes(j){
+ var m=j.match(/(\d+(?:\.\d+)?)\s*[hHｈＨ]\s*有/);
+ return m?Math.round(parseFloat(m[1])*60):0;
+}
+function roundUp15(min){return Math.ceil(min/15)*15;}
+function roundDown15(min){return Math.floor(min/15)*15;}
 function isManagerRole(role){
  return /部長|課長|次長|本部長|取締役|社長|工場長|所長/.test(role||'');
 }
@@ -95,6 +101,10 @@ function showSummary(path,scopeLabel,results){
   }else{
    tdVal.textContent=hours(r.total);
    if(r.total/60>34.75)tdVal.style.color='#c00000';
+   if(r.warnDays&&r.warnDays.length){
+    tdVal.textContent+=' ⚠';
+    tdVal.title='打刻ミスの可能性(実働+有給が7.75hに届かない日):\n'+r.warnDays.join('\n');
+   }
   }
   tr.appendChild(tdName);
   tr.appendChild(tdVal);
@@ -185,7 +195,7 @@ function buildReasonMap(tb){
 function calcUserTotal(reasonMap,isManager){
  var mainTable=findMainTable()||document.getElementsByTagName('table')[2];
  var R=mainTable.rows;
- var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub;
+ var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,warnDays=[];
 
  for(i=1;i<R.length;i++){
   v=R[i].cells;
@@ -212,17 +222,20 @@ function calcUserTotal(reasonMap,isManager){
 
    st=ea>=0?ea:540;
    en=er>=0?er:(wait&&oe0>=0?oe0:1050);
-   p=st>734;
+   p=(os0>=0?os0:st)>734;
 
    if(/\(土\)|\(日\)|休日|出勤登録/.test(d+j)){
     w=c(ea<0?os:ea,oe,p);
     if(w<0)w=0;
     m=/代付/.test(j)?Math.max(0,w-465):w;
    }else if(isManager){
-    m=night(st,en,p);
+    m=night(roundUp15(st),roundDown15(en),p);
    }else{
-    w=c(st,en,p);
-    m=w-465;
+    w=c(roundUp15(st),roundDown15(en),p);
+    lv=leaveMinutes(j);
+    need=Math.max(0,465-lv);
+    if(w<need)warnDays.push(d);
+    m=Math.max(0,w-need);
    }
 
    u+=m;
@@ -230,7 +243,7 @@ function calcUserTotal(reasonMap,isManager){
   }
  }
 
- return u;
+ return{total:u,warnDays:warnDays};
 }
 
 function clickExact(selector,text,root){
@@ -500,8 +513,8 @@ try{
    await waitFor(findMainTable,8000);
   }
 
-  var total=calcUserTotal(reasonMap,isManagerRole(role));
-  results.push({name:name,role:role,total:total});
+  var calcResult=calcUserTotal(reasonMap,isManagerRole(role));
+  results.push({name:name,role:role,total:calcResult.total,warnDays:calcResult.warnDays});
  }
 
  hideLoading();

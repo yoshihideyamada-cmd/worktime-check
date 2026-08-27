@@ -23,6 +23,8 @@ function night(s,e,p){
 function hours(minutes){
  return (minutes/60).toFixed(2)+'h';
 }
+function roundUp15(min){return Math.ceil(min/15)*15;}
+function roundDown15(min){return Math.floor(min/15)*15;}
 function show(title,u,details){
  var rem=44.75-u/60;
  var old=document.getElementById('__zangyo_result');
@@ -176,14 +178,14 @@ function runCalc(reasonMap){
 
    st=ea>=0?ea:540;
    en=er>=0?er:(wait&&oe0>=0?oe0:1050);
-   p=st>734;
+   p=(os0>=0?os0:st)>734;
 
    if(/\(土\)|\(日\)|休日|出勤登録/.test(d+j)){
     w=c(ea<0?os:ea,oe,p);
     if(w<0)w=0;
     m=/代付/.test(j)?Math.max(0,w-465):w;
    }else{
-    m=night(st,en,p);
+    m=night(roundUp15(st),roundDown15(en),p);
    }
 
    u+=m;
