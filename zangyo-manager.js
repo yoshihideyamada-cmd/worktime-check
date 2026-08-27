@@ -97,6 +97,14 @@ function show(title,u,details){
   details.forEach(function(entry){
    var line=document.createElement('div');
    line.textContent=entry.text;
+   if(entry.gapValue){
+    line.appendChild(document.createTextNode('（再出入差引済　'));
+    var gapSpan=document.createElement('span');
+    gapSpan.style.color='#c00000';
+    gapSpan.textContent='-'+entry.gapValue;
+    line.appendChild(gapSpan);
+    line.appendChild(document.createTextNode('）'));
+   }
    if(entry.warning){
     var mark=document.createElement('span');
     mark.textContent=' [!]';
@@ -322,9 +330,8 @@ function runCalc(reasonMap,gapMap){
    u+=m;
    if(m!==0||dayWarnings.length){
     var label='残業：'+hours(m);
-    if(gap>0)label+='(再出入'+hours(gap)+'差し引き済み)';
     if(isNightDuty)label+='(ナイト'+hours(nDuty)+')';
-    details.push({text:d+'　'+label,warning:dayWarnings.length?'打刻ミスの可能性：\n'+dayWarnings.join('\n'):null});
+    details.push({text:d+'　'+label,warning:dayWarnings.length?'打刻ミスの可能性：\n'+dayWarnings.join('\n'):null,gapValue:gap>0?hours(gap):null});
    }
    if(m>0)last=m;
   }

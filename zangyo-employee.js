@@ -93,6 +93,14 @@ function show(title,u,details,henkeiTotal){
    var line=document.createElement('div');
    line.textContent=entry.text;
    if(entry.color)line.style.color=entry.color;
+   if(entry.gapValue){
+    line.appendChild(document.createTextNode('（再出入差引済　'));
+    var gapSpan=document.createElement('span');
+    gapSpan.style.color='#c00000';
+    gapSpan.textContent='-'+entry.gapValue;
+    line.appendChild(gapSpan);
+    line.appendChild(document.createTextNode('）'));
+   }
    if(entry.warning){
     var mark=document.createElement('span');
     mark.textContent=' [!]';
@@ -334,9 +342,8 @@ function runCalc(reasonMap,gapMap){
    if(isHenkei)henkeiTotal+=m;
    if(m!==0||dayWarnings.length){
     var label=isHenkei?'変形：'+(m>=0?'+':'')+hours(m):'残業：'+hours(m);
-    if(gap>0)label+='(再出入'+hours(gap)+'差し引き済み)';
     if(isNightDuty)label+='(ナイト'+hours(nDuty)+')';
-    details.push({text:d+'　'+label,warning:dayWarnings.length?'打刻ミスの可能性：\n'+dayWarnings.join('\n'):null,color:isHenkei?'#0645ad':null});
+    details.push({text:d+'　'+label,warning:dayWarnings.length?'打刻ミスの可能性：\n'+dayWarnings.join('\n'):null,color:isHenkei?'#0645ad':null,gapValue:gap>0?hours(gap):null});
    }
    if(m>0)last=m;
   }
