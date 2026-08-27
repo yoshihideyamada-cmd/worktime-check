@@ -133,7 +133,7 @@ function show(title,u,details){
  notice.style='white-space:pre-line;margin-top:12px';
 
  var changelog=document.createElement('div');
- changelog.textContent='※時間有給に対応しました。26/08/27';
+ changelog.textContent='※8/27 変形時差・時間有給に対応しました。(たぶん)';
  changelog.style='color:#0645ad;margin-top:4px';
 
  box.appendChild(close);
@@ -205,6 +205,8 @@ function buildReasonMap(tb){
   if(cells.length>10&&/^\d\d月\d\d日/.test(g(cells[0]))){
    var d=g(cells[0]);
    var reasons=[];
+   var kubun=cells[2]?g(cells[2]).trim():'';
+   if(kubun)reasons.push(kubun);
    for(var ci=4;ci<=8;ci++){
     var txt=cells[ci]?g(cells[ci]).trim():'';
     if(txt)reasons.push(txt);
@@ -218,7 +220,7 @@ function buildReasonMap(tb){
 function runCalc(reasonMap){
  var mainTable=findMainTable()||document.getElementsByTagName('table')[2];
  var R=mainTable.rows;
- var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,dayWarnings,lateStart,earlyEnd,hasAttendance;
+ var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,dayWarnings,lateStart,earlyEnd,hasAttendance,isHenkei,henkeiTotal=0;
  var details=[];
 
  for(i=1;i<R.length;i++){
@@ -227,6 +229,7 @@ function runCalc(reasonMap){
    j=g(v[2]);
    if(reasonMap&&reasonMap[d])j+=' / '+reasonMap[d];
    dayWarnings=[];
+   isHenkei=false;
 
    if(/振替休日/.test(j)){
     sub=Math.min(last,465);
@@ -263,7 +266,7 @@ function runCalc(reasonMap){
    }else{
     w=c(st,en,p);
     need=(lv>0&&hasAttendance)?Math.max(0,465-lv):465;
-    if(w<need)dayWarnings.push('実働+有給が7.75hに届きません：実働'+hours(w)+'＋有給'+hours(lv)+'＝'+hours(w+lv));
+    if(lv>0&&w<need)dayWarnings.push('実働+有給が7.75hに届きません：実働'+hours(w)+'＋有給'+hours(lv)+'＝'+hours(w+lv));
     if(lateStart){
      expected=endForWorkMinutes(540,lv,p);
      if(roundUp15(actualIn)!==expected)dayWarnings.push('有給終了予定('+fmt(expected)+')と出勤時刻('+fmt(roundUp15(actualIn))+')が一致しません');
