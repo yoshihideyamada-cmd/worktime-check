@@ -25,6 +25,10 @@ function hours(minutes){
 }
 function roundUp15(min){return Math.ceil(min/15)*15;}
 function roundDown15(min){return Math.floor(min/15)*15;}
+function leaveMinutes(j){
+ var m=j.match(/(\d+(?:\.\d+)?)\s*[hHｈＨ]\s*有/);
+ return m?Math.round(parseFloat(m[1])*60):0;
+}
 function show(title,u,details){
  var rem=44.75-u/60;
  var old=document.getElementById('__zangyo_result');
@@ -149,7 +153,7 @@ function buildReasonMap(tb){
 function runCalc(reasonMap){
  var mainTable=findMainTable()||document.getElementsByTagName('table')[2];
  var R=mainTable.rows;
- var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub;
+ var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,actualIn,actualOut;
  var details=[];
 
  for(i=1;i<R.length;i++){
@@ -175,17 +179,20 @@ function runCalc(reasonMap){
    oe0=t(ec);
    oe=z(er,oe0);
    wait=/事後報告\s*入力待ち|xs-tc-badge-orange/.test(sc+ec+h(v[7])+h(v[8]));
+   actualIn=t(g(v[5]));
+   actualOut=t(g(v[6]));
+   lv=leaveMinutes(j);
 
-   st=ea>=0?ea:540;
-   en=er>=0?er:(wait&&oe0>=0?oe0:1050);
-   p=(os0>=0?os0:st)>734;
+   p=(ea>=0?ea:540)>734;
+   st=ea>=0?ea:(lv>0&&actualIn>=0?roundUp15(actualIn):540);
+   en=er>=0?er:(lv>0&&actualOut>=0?roundDown15(actualOut):(wait&&oe0>=0?oe0:1050));
 
    if(/\(土\)|\(日\)|休日|出勤登録/.test(d+j)){
     w=c(ea<0?os:ea,oe,p);
     if(w<0)w=0;
     m=/代付/.test(j)?Math.max(0,w-465):w;
    }else{
-    m=night(roundUp15(st),roundDown15(en),p);
+    m=night(st,en,p);
    }
 
    u+=m;
