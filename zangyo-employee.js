@@ -177,9 +177,17 @@ function findReasonTable(){
  for(var i=0;i<tables.length;i++)if(isReasonTable(tables[i]))return tables[i];
  return null;
 }
+function isGapTable(tb){
+ return !!tb&&tb.rows.length>1&&/外出1/.test(tb.innerText)&&/再入1/.test(tb.innerText);
+}
+function findGapTable(){
+ var tables=document.getElementsByTagName('table');
+ for(var i=0;i<tables.length;i++)if(isGapTable(tables[i]))return tables[i];
+ return null;
+}
 function findMainTable(){
  var tb=document.getElementsByTagName('table')[2];
- return(tb&&!isReasonTable(tb))?tb:null;
+ return(tb&&!isReasonTable(tb)&&!isGapTable(tb))?tb:null;
 }
 function clickTabByText(re){
  var anchors=document.querySelectorAll('a');
@@ -221,11 +229,31 @@ function buildReasonMap(tb){
  }
  return map;
 }
+function buildGapMap(tb){
+ var map={};
+ for(var r=0;r<tb.rows.length;r++){
+  var cells=tb.rows[r].cells;
+  if(cells.length>10&&/^\d\d月\d\d日/.test(g(cells[0]))){
+   var d=g(cells[0]);
+   var pairs=[];
+   for(var ci=3;ci<=9;ci+=2){
+    var out=t(g(cells[ci]));
+    var back=t(g(cells[ci+1]));
+    if(out>=0&&back>=0){
+     if(back<out)back+=1440;
+     pairs.push([out,back]);
+    }
+   }
+   if(pairs.length)map[d]=pairs;
+  }
+ }
+ return map;
+}
 
-function runCalc(reasonMap){
+function runCalc(reasonMap,gapMap){
  var mainTable=findMainTable()||document.getElementsByTagName('table')[2];
  var R=mainTable.rows;
- var u=0,last=0,i,v,d,j,kubun,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,dayWarnings,lateStart,earlyEnd,hasAttendance,isHenkei,henkeiTotal=0;
+ var u=0,last=0,i,v,d,j,kubun,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,dayWarnings,lateStart,earlyEnd,hasAttendance,isHenkei,henkeiTotal=0,gap,gapPairs;
  var details=[];
 
  for(i=1;i<R.length;i++){
@@ -239,6 +267,7 @@ function runCalc(reasonMap){
    }
    dayWarnings=[];
    isHenkei=false;
+   gapPairs=(gapMap&&gapMap[d])||[];
 
    if(/振替休日/.test(j)){
     sub=Math.min(last,465);
@@ -268,16 +297,18 @@ function runCalc(reasonMap){
    p=(ea>=0?ea:(isHenkei&&actualIn>=0?actualIn:540))>734;
    st=ea>=0?ea:(isHenkei&&actualIn>=0?roundUp15(actualIn):(lateStart?roundUp15(actualIn):540));
    en=er>=0?er:(isHenkei&&actualOut>=0?roundDown15(actualOut):(earlyEnd?roundDown15(actualOut):(wait&&oe0>=0?oe0:1050)));
+   gap=0;
+   for(var gi=0;gi<gapPairs.length;gi++)gap+=c(gapPairs[gi][0],gapPairs[gi][1],p);
 
    if(/\(土\)|\(日\)|休日|出勤登録/.test(d+j)){
-    w=c(ea<0?os:ea,oe,p);
+    w=c(ea<0?os:ea,oe,p)-gap;
     if(w<0)w=0;
     m=/代付/.test(j)?Math.max(0,w-465):w;
    }else if(isHenkei){
-    w=c(st,en,p);
+    w=c(st,en,p)-gap;
     m=w-465;
    }else{
-    w=c(st,en,p);
+    w=c(st,en,p)-gap;
     need=(lv>0&&hasAttendance)?Math.max(0,465-lv):465;
     if(lv>0&&w<need)dayWarnings.push('実働+有給が7.75hに届きません：実働'+hours(w)+'＋有給'+hours(lv)+'＝'+hours(w+lv));
     if(lateStart){
@@ -295,6 +326,7 @@ function runCalc(reasonMap){
    if(isHenkei)henkeiTotal+=m;
    if(m!==0||dayWarnings.length){
     var label=isHenkei?'変形：'+(m>=0?'+':'')+hours(m):'残業：'+hours(m);
+    if(gap>0)label+='(抜け'+hours(gap)+'差引済)';
     details.push({text:d+'　'+label,warning:dayWarnings.length?'打刻ミスの可能性：\n'+dayWarnings.join('\n'):null,color:isHenkei?'#0645ad':null});
    }
    if(m>0)last=m;
@@ -307,6 +339,7 @@ function runCalc(reasonMap){
 async function run(){
 try{
  var reasonMap=null;
+ var gapMap=null;
 
  if(clickTabByText(/^事由申請/)){
   showLoading('事由申請データを読み込み中...');
@@ -318,7 +351,17 @@ try{
   hideLoading();
  }
 
- runCalc(reasonMap);
+ if(clickTabByText(/^再出動管理/)){
+  showLoading('再出動管理データを読み込み中...');
+  var gapTable=await waitFor(findGapTable,8000);
+  if(gapTable)gapMap=buildGapMap(gapTable);
+
+  clickTabByText(/^勤怠申請/);
+  await waitFor(findMainTable,8000);
+  hideLoading();
+ }
+
+ runCalc(reasonMap,gapMap);
 }catch(e){
  hideLoading();
  alert('エラー:'+e.message);
