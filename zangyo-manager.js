@@ -254,7 +254,7 @@ function buildGapMap(tb){
 function runCalc(reasonMap,gapMap){
  var mainTable=findMainTable()||document.getElementsByTagName('table')[2];
  var R=mainTable.rows;
- var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,dayWarnings,lateStart,earlyEnd,hasAttendance,isHenkei,henkeiTotal=0,gap,gapPairs,nightGap,isNightDuty;
+ var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,dayWarnings,lateStart,earlyEnd,hasAttendance,isHenkei,henkeiTotal=0,gap,gapPairs,nightGap,isNightDuty,nightLabel;
  var details=[];
 
  for(i=1;i<R.length;i++){
@@ -306,8 +306,9 @@ function runCalc(reasonMap,gapMap){
     if(w<0)w=0;
     m=/代付/.test(j)?Math.max(0,w-465):w;
    }else if(isNightDuty=/ナイト当番|緊急/.test(j)&&gapPairs.length>0){
-    var nFirstExit=gapPairs[0][0];
-    var nLastReentry=gapPairs[gapPairs.length-1][1];
+    nightLabel=/緊急/.test(j)?'緊急':'ナイト';
+    var nFirstExit=roundDown15(gapPairs[0][0]);
+    var nLastReentry=roundUp15(gapPairs[gapPairs.length-1][1]);
     var nNormal=night(st,nFirstExit,p);
     var nDuty=Math.max(0,en-nLastReentry);
     m=nNormal+nDuty;
@@ -330,7 +331,7 @@ function runCalc(reasonMap,gapMap){
    u+=m;
    if(m!==0||dayWarnings.length){
     var label='残業：'+hours(m);
-    if(isNightDuty)label+='(ナイト'+hours(nDuty)+')';
+    if(isNightDuty)label+='('+nightLabel+hours(nDuty)+')';
     details.push({text:d+'　'+label,warning:dayWarnings.length?'打刻ミスの可能性：\n'+dayWarnings.join('\n'):null,gapValue:gap>0?hours(gap):null});
    }
    if(m>0)last=m;
