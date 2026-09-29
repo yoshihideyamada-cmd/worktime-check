@@ -151,8 +151,9 @@ var OVERTIME_LIMIT_MIN=34.75*60;
 // 部署名(scopeLabelと一致)→その部署の「定時連絡」等の既存Teamsチャットへのリンク。
 // ここに書いたものは全員に共有される(山田が管理・git push)。
 var DEFAULT_DEPARTMENT_CHAT_LINKS={
+ '尾頭橋営業所':'https://teams.microsoft.com/l/chat/19:20c09354a46b42d6b5e1431045bf018b@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D'
 };
-// 部署選択画面の各ボタン横の「🔗設定」から登録・変更したものはここ(このブラウザのlocalStorage)に保存され、
+// 一括チェック結果画面の下部にある登録欄で登録・変更したものはここ(このブラウザのlocalStorage)に保存され、
 // 自分のブラウザだけで有効。全員に反映したい場合はDEFAULT_DEPARTMENT_CHAT_LINKSへの追加を依頼する。
 var DEPT_CHAT_LINKS_KEY='zangyoDeptChatLinks';
 function loadLocalDeptLinks(){
@@ -483,7 +484,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※Teams連絡を「個別」「部署」の選択式にし、部署リンク登録をこの結果画面に移しました。26/09/29';
+ changelog.textContent='※尾頭橋営業所のTeamsチャットを共有登録しました。登録済みは緑字で表示されます。26/09/29';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
@@ -874,8 +875,8 @@ function buildDeptLinkRegistrationRow(scopeLabel){
 
  var hasDefault=!!DEFAULT_DEPARTMENT_CHAT_LINKS[scopeLabel];
  var label=document.createElement('div');
- label.textContent='この部署のTeamsチャット連携'+(hasDefault?'(共有登録済み)':'');
- label.style='font-size:12px;color:#555;margin-bottom:4px';
+ label.textContent=hasDefault?'この部署のTeamsチャット連携：✓ 登録済み(全員共有)':'この部署のTeamsチャット連携';
+ label.style='font-size:12px;margin-bottom:4px;'+(hasDefault?'color:#0a7d00;font-weight:700':'color:#555');
  wrap.appendChild(label);
 
  var row=document.createElement('div');
