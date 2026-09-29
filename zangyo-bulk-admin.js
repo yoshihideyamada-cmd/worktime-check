@@ -434,19 +434,24 @@ function showSummary(path,scopeLabel,results){
    detailBtn.style='margin-left:6px;padding:1px 6px;font-size:11px;white-space:nowrap';
    tdName.appendChild(detailBtn);
 
+   var teamsLabel=document.createElement('span');
+   teamsLabel.textContent='Teams:';
+   teamsLabel.style='margin-left:6px;font-size:11px;color:#666;white-space:nowrap';
+   tdName.appendChild(teamsLabel);
+
    var teamsIndivBtn=document.createElement('button');
-   teamsIndivBtn.textContent='Teams「個別」';
+   teamsIndivBtn.textContent='個別';
    teamsIndivBtn.title='本人と1対1のTeamsチャットを開きます';
-   teamsIndivBtn.style='margin-left:4px;padding:1px 6px;font-size:11px;white-space:nowrap';
+   teamsIndivBtn.style='margin-left:2px;padding:1px 6px;font-size:11px;white-space:nowrap';
    teamsIndivBtn.onclick=function(){
     handleTeamsClick(r.name,OVERTIME_LIMIT_MIN-r.total,path,scopeLabel,'individual');
    };
    tdName.appendChild(teamsIndivBtn);
 
    var teamsDeptBtn=document.createElement('button');
-   teamsDeptBtn.textContent='Teams「部署」';
+   teamsDeptBtn.textContent='部署';
    teamsDeptBtn.title='この部署の既存Teamsチャットへコピー＆開きます(要リンク登録)';
-   teamsDeptBtn.style='margin-left:4px;padding:1px 6px;font-size:11px;white-space:nowrap';
+   teamsDeptBtn.style='margin-left:2px;padding:1px 6px;font-size:11px;white-space:nowrap';
    teamsDeptBtn.onclick=function(){
     handleTeamsClick(r.name,OVERTIME_LIMIT_MIN-r.total,path,scopeLabel,'department');
    };
@@ -507,7 +512,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※Teamsボタンを短縮表示にし、リンク一致判定を部分一致にも対応。「冷熱1G 尾頭橋営業所」を正確なキーで登録しました。26/09/29';
+ changelog.textContent='※Teamsボタンを「個別」「部署」のみの表記に簡略化しました。26/09/29';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
