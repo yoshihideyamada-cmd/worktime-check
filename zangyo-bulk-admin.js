@@ -435,7 +435,7 @@ function showSummary(path,scopeLabel,results){
    tdName.appendChild(detailBtn);
 
    var teamsLabel=document.createElement('span');
-   teamsLabel.textContent='Teams:';
+   teamsLabel.textContent='Teams連絡';
    teamsLabel.style='margin-left:6px;font-size:11px;color:#666;white-space:nowrap';
    tdName.appendChild(teamsLabel);
 
@@ -512,7 +512,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※Teamsボタンを「個別」「部署」のみの表記に簡略化しました。26/09/29';
+ changelog.textContent='※Teams連絡の表記を「Teams連絡」＋「個別」「部署」ボタンに調整しました。26/09/29';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
