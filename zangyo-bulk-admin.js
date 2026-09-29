@@ -148,83 +148,29 @@ function buildPersonDetailBox(details,total,henkeiTotal){
 }
 var OVERTIME_LIMIT_MIN=34.75*60;
 
-function findSystemSettingLink(){
- var anchors=document.querySelectorAll('a');
- var i;
- for(i=0;i<anchors.length;i++){
-  if((anchors[i].textContent||'').trim()==='システム設定'&&/side-menus-xs/.test(anchors[i].className))return anchors[i];
- }
- for(i=0;i<anchors.length;i++){
-  if((anchors[i].textContent||'').trim()==='システム設定')return anchors[i];
- }
- return null;
-}
-function findUserMenuLink(){
- var heads=document.querySelectorAll('.xs-system-menulist-head');
- for(var i=0;i<heads.length;i++){
-  if(heads[i].textContent.trim()==='ユーザー'){
-   var a=heads[i].closest('a.xs-transition-link')||heads[i].closest('a');
-   if(a)return a;
-  }
- }
- return null;
-}
-function findUserRowLinkByName(name){
- var tables=document.querySelectorAll('table');
- for(var ti=0;ti<tables.length;ti++){
-  var rows=tables[ti].querySelectorAll('tr');
-  for(var ri=0;ri<rows.length;ri++){
-   var cells=rows[ri].cells;
-   if(!cells||cells.length<2)continue;
-   var a=cells[1].querySelector('a[onclick^="_userInfoEdit"]');
-   if(a&&a.textContent.trim()===name)return a;
-  }
- }
- return null;
-}
-async function fetchUserEmail(name){
- var sysLink=findSystemSettingLink();
- if(!sysLink)return{error:'システム設定リンクが見つかりません'};
- sysLink.click();
+// 部署名(scopeLabelと一致させる)→その部署の「定時連絡」等の既存Teamsチャットへのリンク。
+// Teamsでそのチャットを開き、チャット名の右の「…」→「リンクをコピー」で取得できる。
+var DEPARTMENT_CHAT_LINKS={
+};
 
- var userLink=await waitFor(findUserMenuLink,8000);
- if(!userLink)return{error:'ユーザーメニューが見つかりません'};
- userLink.click();
-
- var rowLink=await waitFor(function(){return findUserRowLinkByName(name);},8000);
- if(!rowLink)return{error:'一覧に「'+name+'」が見つかりません'};
-
- var staleInputs=Array.prototype.slice.call(document.querySelectorAll('input[id^="addressValueEdit"]'));
- rowLink.click();
-
- var email=await waitFor(function(){
-  var inputs=Array.prototype.slice.call(document.querySelectorAll('input[id^="addressValueEdit"]'));
-  var fresh=inputs.filter(function(inp){return staleInputs.indexOf(inp)===-1;});
-  var pool=fresh.length?fresh:inputs;
-  var hit=null;
-  for(var i=0;i<pool.length;i++){if(/@/.test(pool[i].value)){hit=pool[i];break;}}
-  return hit?hit.value.trim():null;
- },8000);
- if(!email)return{error:'メールアドレスが取得できませんでした'};
- return{email:email};
-}
-function findManagerInResults(results,excludeName){
- for(var i=0;i<results.length;i++){
-  if(!results[i].error&&isManagerRole(results[i].role)&&results[i].name!==excludeName)return results[i].name;
+function copyToClipboard(text){
+ if(navigator.clipboard&&navigator.clipboard.writeText){
+  navigator.clipboard.writeText(text).catch(function(){fallbackCopy(text);});
+ }else{
+  fallbackCopy(text);
  }
- return null;
 }
-function buildCcCandidates(results,excludeName){
- var defaultManager=findManagerInResults(results,excludeName);
- var list=[];
- for(var i=0;i<results.length;i++){
-  var r=results[i];
-  if(r.error||r.name===excludeName)continue;
-  list.push({name:r.name,role:r.role,defaultChecked:r.name===defaultManager});
- }
- return list;
+function fallbackCopy(text){
+ var ta=document.createElement('textarea');
+ ta.value=text;
+ ta.style.position='fixed';
+ ta.style.left='-9999px';
+ document.body.appendChild(ta);
+ ta.select();
+ try{document.execCommand('copy');}catch(e){}
+ document.body.removeChild(ta);
 }
-function showTeamsComposer(name,remainingMin,ccCandidates){
+function showTeamsComposer(name,remainingMin){
  return new Promise(function(resolve){
   var old=document.getElementById('__zangyo_teams');
   if(old)old.remove();
@@ -281,41 +227,10 @@ function showTeamsComposer(name,remainingMin,ccCandidates){
 
   select.onchange=function(){textarea.value=templates[select.value];};
 
-  var ccLabel=document.createElement('div');
-  ccLabel.textContent='CC(同じグループに入れる人)';
-  ccLabel.style='font-size:12px;color:#666;margin-bottom:2px';
-  box.appendChild(ccLabel);
-
-  var hasManager=!!(ccCandidates&&ccCandidates.some(function(c){return c.defaultChecked;}));
-  if(!hasManager){
-   var noMgrMsg=document.createElement('div');
-   noMgrMsg.textContent='この一覧内に上長（課長）が見つかりませんでした';
-   noMgrMsg.style='font-size:12px;color:#c00000;margin-bottom:4px';
-   box.appendChild(noMgrMsg);
-  }
-
-  var ccBox=document.createElement('div');
-  ccBox.style='max-height:130px;overflow:auto;border:1px solid #ddd;padding:4px 6px;margin-bottom:8px;font-size:12px';
-  var ccChecks=[];
-  if(!ccCandidates||ccCandidates.length===0){
-   var noneMsg=document.createElement('div');
-   noneMsg.textContent='(候補者なし。本人のみに送信されます)';
-   noneMsg.style='color:#999';
-   ccBox.appendChild(noneMsg);
-  }else{
-   ccCandidates.forEach(function(c){
-    var row=document.createElement('label');
-    row.style='display:block;padding:2px 0;cursor:pointer';
-    var chk=document.createElement('input');
-    chk.type='checkbox';
-    chk.checked=!!c.defaultChecked;
-    row.appendChild(chk);
-    row.appendChild(document.createTextNode(' '+c.name+(c.role?'('+c.role+')':'')));
-    ccBox.appendChild(row);
-    ccChecks.push({name:c.name,checkbox:chk});
-   });
-  }
-  box.appendChild(ccBox);
+  var hint=document.createElement('div');
+  hint.textContent='「開く」を押すとこの内容がコピーされ、部署のTeamsチャットが開きます。開いたら貼り付け(Ctrl+V)て送信してください。';
+  hint.style='font-size:11px;color:#888;margin:6px 0 8px';
+  box.appendChild(hint);
 
   var btnRow=document.createElement('div');
   btnRow.style='margin-top:10px;text-align:right';
@@ -326,15 +241,13 @@ function showTeamsComposer(name,remainingMin,ccCandidates){
   cancel.onclick=function(){box.remove();resolve(null);};
 
   var send=document.createElement('button');
-  send.textContent='Teamsを開く';
+  send.textContent='開く';
   send.style='padding:4px 12px;font-weight:700';
   send.onclick=function(){
    var subject=subjectSelect.value;
    var msg=(subject&&subject!=='(なし)')?('【'+subject+'】\n'+textarea.value):textarea.value;
-   var ccNames=[];
-   ccChecks.forEach(function(c){if(c.checkbox.checked)ccNames.push(c.name);});
    box.remove();
-   resolve({message:msg,ccNames:ccNames});
+   resolve(msg);
   };
 
   btnRow.appendChild(cancel);
@@ -344,30 +257,18 @@ function showTeamsComposer(name,remainingMin,ccCandidates){
   document.body.appendChild(box);
  });
 }
-async function handleTeamsClick(name,remainingMin,ccCandidates){
- var composed=await showTeamsComposer(name,remainingMin,ccCandidates);
- if(!composed)return;
+async function handleTeamsClick(name,remainingMin,scopeLabel){
+ var msg=await showTeamsComposer(name,remainingMin);
+ if(!msg)return;
 
- showLoading(name+'さんのメールアドレスを取得しています...');
- var mainResult=await fetchUserEmail(name);
- if(mainResult.error){hideLoading();alert(name+'さんのメール取得に失敗しました:\n'+mainResult.error);return;}
- var emails=[mainResult.email];
+ copyToClipboard(msg);
 
- for(var i=0;i<composed.ccNames.length;i++){
-  var ccName=composed.ccNames[i];
-  showLoading(ccName+'さんのメールアドレスを取得しています...');
-  var ccResult=await fetchUserEmail(ccName);
-  if(ccResult.error){
-   hideLoading();
-   if(!confirm(ccName+'さんのメール取得に失敗しました:\n'+ccResult.error+'\n\nこの人を除いて続けますか？'))return;
-   continue;
-  }
-  if(emails.indexOf(ccResult.email)===-1)emails.push(ccResult.email);
+ var link=DEPARTMENT_CHAT_LINKS[scopeLabel];
+ if(!link){
+  alert('「'+scopeLabel+'」のTeamsチャットリンクが未登録です。\nスクリプト内のDEPARTMENT_CHAT_LINKSに追加してください。\n\nメッセージはコピー済みです:\n\n'+msg);
+  return;
  }
- hideLoading();
-
- var url='https://teams.microsoft.com/l/chat/0/0?users='+encodeURIComponent(emails.join(','))+'&message='+encodeURIComponent(composed.message);
- window.open(url,'_blank');
+ window.open(link,'_blank');
 }
 
 function showSummary(path,scopeLabel,results){
@@ -425,8 +326,7 @@ function showSummary(path,scopeLabel,results){
    teamsBtn.textContent='Teams連絡';
    teamsBtn.style='margin-left:6px;padding:1px 8px;font-size:11px';
    teamsBtn.onclick=function(){
-    var ccCandidates=buildCcCandidates(results,r.name);
-    handleTeamsClick(r.name,OVERTIME_LIMIT_MIN-r.total,ccCandidates);
+    handleTeamsClick(r.name,OVERTIME_LIMIT_MIN-r.total,scopeLabel);
    };
    tdName.appendChild(teamsBtn);
 
@@ -485,7 +385,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※Teams連絡でCC(同じ一覧の人)を自由に選べるようにしました。26/09/29';
+ changelog.textContent='※Teams連絡を部署の既存チャットへコピペする方式に変更しました。26/09/29';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
