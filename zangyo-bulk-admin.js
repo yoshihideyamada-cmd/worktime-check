@@ -146,7 +146,7 @@ function buildPersonDetailBox(details,total,henkeiTotal){
  }
  return box;
 }
-var OVERTIME_LIMIT_MIN=34.75*60;
+var OVERTIME_LIMIT_MIN=45*60;
 
 // 部署名(scopeLabelと一致)→その部署の「定時連絡」等の既存Teamsチャットへのリンク。
 // ここに書いたものは全員に共有される(山田が管理・git push)。
@@ -283,15 +283,16 @@ function showTeamsComposer(name,remainingMin,mode){
   title.style='font-weight:700;margin-bottom:10px';
   box.appendChild(title);
 
-  var remainStr=(remainingMin/60).toFixed(2)+'h';
+  var remainStr=(remainingMin/60).toFixed(1)+'時間';
   var sei=surname(name);
   var templates=[
-   sei+'さん、今月の残業残りは'+remainStr+'です。計画的な勤務をお願いします。',
-   sei+'さん、残業時間が上限に近づいています(残り'+remainStr+')。至急ご確認ください。',
+   sei+'さん、45hまで残り'+remainStr+'です。計画的な勤務をお願いします。',
+   sei+'さん、残業時間が45hの上限に近づいています(45hまで残り'+remainStr+')。至急ご確認ください。',
    sei+'さん、本日は定時(17:30)での退社にご協力ください。',
+   sei+'さん、今月の残業が45Hを超えています。45H超申請書の作成⇒提出をお願いします。',
    ''
   ];
-  var labels=['プリセット1：残り時間のお知らせ','プリセット2：上限接近の警告','プリセット3：定時退社のお願い','自由入力のみ'];
+  var labels=['プリセット1：残り時間のお知らせ','プリセット2：上限接近の警告','プリセット3：定時退社のお願い','プリセット4：45H超申請書の提出依頼','自由入力のみ'];
 
   var subjectLabel=document.createElement('div');
   subjectLabel.textContent='表題(メッセージ冒頭に付けます)';
@@ -512,7 +513,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※Teams連絡の表記を「Teams連絡」＋「個別」「部署」ボタンに調整しました。26/09/29';
+ changelog.textContent='※残業残りの基準を45hに変更し、45H超申請書のプリセットを追加しました。26/09/29';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
