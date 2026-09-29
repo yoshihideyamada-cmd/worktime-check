@@ -287,7 +287,7 @@ function showTeamsComposer(name,remainingMin,mode){
   var sei=surname(name);
   var templates=[
    sei+'さん、45hまで残り'+remainStr+'です。',
-   sei+'さん、35H超えました。45H超の申請書提出をお願いします。',
+   sei+'さん、35hを超えていますから提出してください。',
    sei+'さん、本日は定時(17:30)での退社にご協力ください。',
    ''
   ];
@@ -512,7 +512,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※プリセットを3種類(残り時間/45H超申請書/定時退社)に整理しました。26/09/29';
+ changelog.textContent='※プリセット2の文言を「35hを超えていますから提出してください」に修正しました。26/09/29';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
