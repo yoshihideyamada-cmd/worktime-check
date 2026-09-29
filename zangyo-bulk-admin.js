@@ -151,9 +151,8 @@ var OVERTIME_LIMIT_MIN=34.75*60;
 // 部署名(scopeLabelと一致)→その部署の「定時連絡」等の既存Teamsチャットへのリンク。
 // ここに書いたものは全員に共有される(山田が管理・git push)。
 var DEFAULT_DEPARTMENT_CHAT_LINKS={
- '尾頭橋営業所':'https://teams.microsoft.com/l/chat/19:20c09354a46b42d6b5e1431045bf018b@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D',
- '冷熱１G':'https://teams.microsoft.com/l/chat/19:20c09354a46b42d6b5e1431045bf018b@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D',
- '冷熱1G':'https://teams.microsoft.com/l/chat/19:20c09354a46b42d6b5e1431045bf018b@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D'
+ '冷熱1G 尾頭橋営業所':'https://teams.microsoft.com/l/chat/19:20c09354a46b42d6b5e1431045bf018b@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D',
+ '尾頭橋営業所':'https://teams.microsoft.com/l/chat/19:20c09354a46b42d6b5e1431045bf018b@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D'
 };
 // 一括チェック結果画面の下部にある登録欄で登録・変更したものはここ(このブラウザのlocalStorage)に保存され、
 // 自分のブラウザだけで有効。全員に反映したい場合はDEFAULT_DEPARTMENT_CHAT_LINKSへの追加を依頼する。
@@ -169,10 +168,23 @@ function saveLocalDeptLinks(links){
 }
 var localDeptLinks=loadLocalDeptLinks();
 function findDeptLinkMatch(path){
- for(var i=path.length-1;i>=0;i--){
-  var name=path[i];
+ var i,name;
+ for(i=path.length-1;i>=0;i--){
+  name=path[i];
   if(localDeptLinks[name])return{name:name,link:localDeptLinks[name],source:'local'};
   if(DEFAULT_DEPARTMENT_CHAT_LINKS[name])return{name:name,link:DEFAULT_DEPARTMENT_CHAT_LINKS[name],source:'default'};
+ }
+ // 表記ゆれ(全角/半角・上位部署名との結合など)対策の部分一致
+ for(i=path.length-1;i>=0;i--){
+  name=path[i];
+  var localKeys=Object.keys(localDeptLinks);
+  for(var k=0;k<localKeys.length;k++){
+   if(name.indexOf(localKeys[k])!==-1||localKeys[k].indexOf(name)!==-1)return{name:localKeys[k],link:localDeptLinks[localKeys[k]],source:'local'};
+  }
+  var defKeys=Object.keys(DEFAULT_DEPARTMENT_CHAT_LINKS);
+  for(var k2=0;k2<defKeys.length;k2++){
+   if(name.indexOf(defKeys[k2])!==-1||defKeys[k2].indexOf(name)!==-1)return{name:defKeys[k2],link:DEFAULT_DEPARTMENT_CHAT_LINKS[defKeys[k2]],source:'default'};
+  }
  }
  return null;
 }
@@ -377,7 +389,7 @@ function showSummary(path,scopeLabel,results){
 
  var box=document.createElement('div');
  box.id='__zangyo_result';
- box.style='position:fixed;top:12px;right:12px;z-index:999999;background:white;color:black;border:2px solid #333;padding:14px 16px;width:420px;max-width:92vw;max-height:88vh;overflow:auto;box-shadow:0 4px 16px #0005;font:15px Meiryo,sans-serif;line-height:1.7';
+ box.style='position:fixed;top:12px;right:12px;z-index:999999;background:white;color:black;border:2px solid #333;padding:14px 16px;width:500px;max-width:92vw;max-height:88vh;overflow:auto;box-shadow:0 4px 16px #0005;font:15px Meiryo,sans-serif;line-height:1.7';
 
  var close=document.createElement('button');
  close.textContent='閉じる';
@@ -419,22 +431,22 @@ function showSummary(path,scopeLabel,results){
    var hasWarn=r.details.some(function(e){return e.warning;})||(r.henkeiTotal&&r.henkeiTotal<0);
    var detailBtn=document.createElement('button');
    detailBtn.textContent='内訳';
-   detailBtn.style='margin-left:8px;padding:1px 8px;font-size:11px';
+   detailBtn.style='margin-left:6px;padding:1px 6px;font-size:11px;white-space:nowrap';
    tdName.appendChild(detailBtn);
 
    var teamsIndivBtn=document.createElement('button');
-   teamsIndivBtn.textContent='Teams連絡「個別」';
+   teamsIndivBtn.textContent='Teams「個別」';
    teamsIndivBtn.title='本人と1対1のTeamsチャットを開きます';
-   teamsIndivBtn.style='margin-left:6px;padding:1px 8px;font-size:11px';
+   teamsIndivBtn.style='margin-left:4px;padding:1px 6px;font-size:11px;white-space:nowrap';
    teamsIndivBtn.onclick=function(){
     handleTeamsClick(r.name,OVERTIME_LIMIT_MIN-r.total,path,scopeLabel,'individual');
    };
    tdName.appendChild(teamsIndivBtn);
 
    var teamsDeptBtn=document.createElement('button');
-   teamsDeptBtn.textContent='Teams連絡「部署」';
+   teamsDeptBtn.textContent='Teams「部署」';
    teamsDeptBtn.title='この部署の既存Teamsチャットへコピー＆開きます(要リンク登録)';
-   teamsDeptBtn.style='margin-left:4px;padding:1px 8px;font-size:11px';
+   teamsDeptBtn.style='margin-left:4px;padding:1px 6px;font-size:11px;white-space:nowrap';
    teamsDeptBtn.onclick=function(){
     handleTeamsClick(r.name,OVERTIME_LIMIT_MIN-r.total,path,scopeLabel,'department');
    };
@@ -495,7 +507,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※Teamsリンクを上位の部署まで遡って一致判定するようにしました(冷熱1G/尾頭橋営業所 登録済み)。26/09/29';
+ changelog.textContent='※Teamsボタンを短縮表示にし、リンク一致判定を部分一致にも対応。「冷熱1G 尾頭橋営業所」を正確なキーで登録しました。26/09/29';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
