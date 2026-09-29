@@ -227,6 +227,23 @@ function showTeamsComposer(name,remainingMin){
   ];
   var labels=['プリセット1：残り時間のお知らせ','プリセット2：上限接近の警告','プリセット3：定時退社のお願い','自由入力のみ'];
 
+  var subjectLabel=document.createElement('div');
+  subjectLabel.textContent='表題(メッセージ冒頭に付けます)';
+  subjectLabel.style='font-size:12px;color:#666;margin-bottom:2px';
+  box.appendChild(subjectLabel);
+
+  var subjects=['(なし)','業務連絡','勤怠連絡','残業について'];
+  var subjectSelect=document.createElement('select');
+  subjectSelect.style='width:100%;margin-bottom:8px;padding:4px';
+  subjects.forEach(function(s){
+   var opt=document.createElement('option');
+   opt.value=s;
+   opt.textContent=s;
+   subjectSelect.appendChild(opt);
+  });
+  subjectSelect.value='勤怠連絡';
+  box.appendChild(subjectSelect);
+
   var select=document.createElement('select');
   select.style='width:100%;margin-bottom:8px;padding:4px';
   labels.forEach(function(lbl,i){
@@ -256,7 +273,8 @@ function showTeamsComposer(name,remainingMin){
   send.textContent='Teamsを開く';
   send.style='padding:4px 12px;font-weight:700';
   send.onclick=function(){
-   var msg=textarea.value;
+   var subject=subjectSelect.value;
+   var msg=(subject&&subject!=='(なし)')?('【'+subject+'】\n'+textarea.value):textarea.value;
    box.remove();
    resolve(msg);
   };
