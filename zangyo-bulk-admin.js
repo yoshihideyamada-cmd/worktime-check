@@ -51,6 +51,9 @@ function startForWorkMinutes(end,workMinutes,p){
  }
  return start;
 }
+function surname(name){
+ return(name||'').split(/[\s　]+/)[0];
+}
 function isManagerRole(role){
  return /部長|課長|次長|本部長|取締役|社長|工場長|所長/.test(role||'');
 }
@@ -211,7 +214,17 @@ function findManagerInResults(results,excludeName){
  }
  return null;
 }
-function showTeamsComposer(name,remainingMin,managerName){
+function buildCcCandidates(results,excludeName){
+ var defaultManager=findManagerInResults(results,excludeName);
+ var list=[];
+ for(var i=0;i<results.length;i++){
+  var r=results[i];
+  if(r.error||r.name===excludeName)continue;
+  list.push({name:r.name,role:r.role,defaultChecked:r.name===defaultManager});
+ }
+ return list;
+}
+function showTeamsComposer(name,remainingMin,ccCandidates){
  return new Promise(function(resolve){
   var old=document.getElementById('__zangyo_teams');
   if(old)old.remove();
@@ -225,10 +238,11 @@ function showTeamsComposer(name,remainingMin,managerName){
   box.appendChild(title);
 
   var remainStr=(remainingMin/60).toFixed(2)+'h';
+  var sei=surname(name);
   var templates=[
-   name+'さん、今月の残業残りは'+remainStr+'です。計画的な勤務をお願いします。',
-   name+'さん、残業時間が上限に近づいています(残り'+remainStr+')。至急ご確認ください。',
-   name+'さん、本日は定時(17:30)での退社にご協力ください。',
+   sei+'さん、今月の残業残りは'+remainStr+'です。計画的な勤務をお願いします。',
+   sei+'さん、残業時間が上限に近づいています(残り'+remainStr+')。至急ご確認ください。',
+   sei+'さん、本日は定時(17:30)での退社にご協力ください。',
    ''
   ];
   var labels=['プリセット1：残り時間のお知らせ','プリセット2：上限接近の警告','プリセット3：定時退社のお願い','自由入力のみ'];
@@ -267,25 +281,41 @@ function showTeamsComposer(name,remainingMin,managerName){
 
   select.onchange=function(){textarea.value=templates[select.value];};
 
-  var managerRow=document.createElement('div');
-  managerRow.style='margin-bottom:8px;font-size:12px';
-  var managerCheckbox=null;
-  if(managerName){
-   managerCheckbox=document.createElement('input');
-   managerCheckbox.type='checkbox';
-   managerCheckbox.checked=true;
-   managerCheckbox.id='__zangyo_teams_mgr_chk';
-   var mgrLabel=document.createElement('label');
-   mgrLabel.htmlFor='__zangyo_teams_mgr_chk';
-   mgrLabel.style='margin-left:4px';
-   mgrLabel.textContent='課長「'+managerName+'」にも同じグループで送る';
-   managerRow.appendChild(managerCheckbox);
-   managerRow.appendChild(mgrLabel);
-  }else{
-   managerRow.textContent='課長：この一覧内には見つかりませんでした(本人のみに送信されます)';
-   managerRow.style.color='#888';
+  var ccLabel=document.createElement('div');
+  ccLabel.textContent='CC(同じグループに入れる人)';
+  ccLabel.style='font-size:12px;color:#666;margin-bottom:2px';
+  box.appendChild(ccLabel);
+
+  var hasManager=!!(ccCandidates&&ccCandidates.some(function(c){return c.defaultChecked;}));
+  if(!hasManager){
+   var noMgrMsg=document.createElement('div');
+   noMgrMsg.textContent='この一覧内に上長（課長）が見つかりませんでした';
+   noMgrMsg.style='font-size:12px;color:#c00000;margin-bottom:4px';
+   box.appendChild(noMgrMsg);
   }
-  box.appendChild(managerRow);
+
+  var ccBox=document.createElement('div');
+  ccBox.style='max-height:130px;overflow:auto;border:1px solid #ddd;padding:4px 6px;margin-bottom:8px;font-size:12px';
+  var ccChecks=[];
+  if(!ccCandidates||ccCandidates.length===0){
+   var noneMsg=document.createElement('div');
+   noneMsg.textContent='(候補者なし。本人のみに送信されます)';
+   noneMsg.style='color:#999';
+   ccBox.appendChild(noneMsg);
+  }else{
+   ccCandidates.forEach(function(c){
+    var row=document.createElement('label');
+    row.style='display:block;padding:2px 0;cursor:pointer';
+    var chk=document.createElement('input');
+    chk.type='checkbox';
+    chk.checked=!!c.defaultChecked;
+    row.appendChild(chk);
+    row.appendChild(document.createTextNode(' '+c.name+(c.role?'('+c.role+')':'')));
+    ccBox.appendChild(row);
+    ccChecks.push({name:c.name,checkbox:chk});
+   });
+  }
+  box.appendChild(ccBox);
 
   var btnRow=document.createElement('div');
   btnRow.style='margin-top:10px;text-align:right';
@@ -301,8 +331,10 @@ function showTeamsComposer(name,remainingMin,managerName){
   send.onclick=function(){
    var subject=subjectSelect.value;
    var msg=(subject&&subject!=='(なし)')?('【'+subject+'】\n'+textarea.value):textarea.value;
+   var ccNames=[];
+   ccChecks.forEach(function(c){if(c.checkbox.checked)ccNames.push(c.name);});
    box.remove();
-   resolve({message:msg,includeManager:managerCheckbox?managerCheckbox.checked:false});
+   resolve({message:msg,ccNames:ccNames});
   };
 
   btnRow.appendChild(cancel);
@@ -312,8 +344,8 @@ function showTeamsComposer(name,remainingMin,managerName){
   document.body.appendChild(box);
  });
 }
-async function handleTeamsClick(name,remainingMin,managerName){
- var composed=await showTeamsComposer(name,remainingMin,managerName);
+async function handleTeamsClick(name,remainingMin,ccCandidates){
+ var composed=await showTeamsComposer(name,remainingMin,ccCandidates);
  if(!composed)return;
 
  showLoading(name+'さんのメールアドレスを取得しています...');
@@ -321,15 +353,16 @@ async function handleTeamsClick(name,remainingMin,managerName){
  if(mainResult.error){hideLoading();alert(name+'さんのメール取得に失敗しました:\n'+mainResult.error);return;}
  var emails=[mainResult.email];
 
- if(composed.includeManager&&managerName&&managerName!==name){
-  showLoading(managerName+'さんのメールアドレスを取得しています...');
-  var mgrResult=await fetchUserEmail(managerName);
-  if(mgrResult.error){
+ for(var i=0;i<composed.ccNames.length;i++){
+  var ccName=composed.ccNames[i];
+  showLoading(ccName+'さんのメールアドレスを取得しています...');
+  var ccResult=await fetchUserEmail(ccName);
+  if(ccResult.error){
    hideLoading();
-   if(!confirm('課長「'+managerName+'」のメール取得に失敗しました:\n'+mgrResult.error+'\n\n本人のみに送信しますか？'))return;
-  }else if(emails.indexOf(mgrResult.email)===-1){
-   emails.push(mgrResult.email);
+   if(!confirm(ccName+'さんのメール取得に失敗しました:\n'+ccResult.error+'\n\nこの人を除いて続けますか？'))return;
+   continue;
   }
+  if(emails.indexOf(ccResult.email)===-1)emails.push(ccResult.email);
  }
  hideLoading();
 
@@ -392,8 +425,8 @@ function showSummary(path,scopeLabel,results){
    teamsBtn.textContent='Teams連絡';
    teamsBtn.style='margin-left:6px;padding:1px 8px;font-size:11px';
    teamsBtn.onclick=function(){
-    var managerName=findManagerInResults(results,r.name);
-    handleTeamsClick(r.name,OVERTIME_LIMIT_MIN-r.total,managerName);
+    var ccCandidates=buildCcCandidates(results,r.name);
+    handleTeamsClick(r.name,OVERTIME_LIMIT_MIN-r.total,ccCandidates);
    };
    tdName.appendChild(teamsBtn);
 
@@ -452,7 +485,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※Teams連絡で課長も同時送信できるようにしました。26/09/29';
+ changelog.textContent='※Teams連絡でCC(同じ一覧の人)を自由に選べるようにしました。26/09/29';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
