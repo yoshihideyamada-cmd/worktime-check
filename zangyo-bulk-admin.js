@@ -152,7 +152,9 @@ var OVERTIME_LIMIT_MIN=45*60;
 // ここに書いたものは全員に共有される(山田が管理・git push)。
 var DEFAULT_DEPARTMENT_CHAT_LINKS={
  '冷熱1G 尾頭橋営業所':'https://teams.microsoft.com/l/chat/19:20c09354a46b42d6b5e1431045bf018b@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D',
- '尾頭橋営業所':'https://teams.microsoft.com/l/chat/19:20c09354a46b42d6b5e1431045bf018b@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D'
+ '尾頭橋営業所':'https://teams.microsoft.com/l/chat/19:20c09354a46b42d6b5e1431045bf018b@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D',
+ '冷熱1G 稲沢営業所':'https://teams.microsoft.com/l/chat/19:801dd9fc38914101a9f6f1497703b895@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D',
+ '稲沢営業所':'https://teams.microsoft.com/l/chat/19:801dd9fc38914101a9f6f1497703b895@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D'
 };
 // 一括チェック結果画面の下部にある登録欄で登録・変更したものはここ(このブラウザのlocalStorage)に保存され、
 // 自分のブラウザだけで有効。全員に反映したい場合はDEFAULT_DEPARTMENT_CHAT_LINKSへの追加を依頼する。
@@ -512,7 +514,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※プリセット2の文言を「35h超えました。45h超書類の提出をお願いします。」に修正しました。26/09/29';
+ changelog.textContent='※冷熱1G 稲沢営業所のTeamsチャットを共有登録しました。26/09/29';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
