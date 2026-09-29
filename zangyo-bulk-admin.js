@@ -151,7 +151,9 @@ var OVERTIME_LIMIT_MIN=34.75*60;
 // 部署名(scopeLabelと一致)→その部署の「定時連絡」等の既存Teamsチャットへのリンク。
 // ここに書いたものは全員に共有される(山田が管理・git push)。
 var DEFAULT_DEPARTMENT_CHAT_LINKS={
- '尾頭橋営業所':'https://teams.microsoft.com/l/chat/19:20c09354a46b42d6b5e1431045bf018b@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D'
+ '尾頭橋営業所':'https://teams.microsoft.com/l/chat/19:20c09354a46b42d6b5e1431045bf018b@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D',
+ '冷熱１G':'https://teams.microsoft.com/l/chat/19:20c09354a46b42d6b5e1431045bf018b@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D',
+ '冷熱1G':'https://teams.microsoft.com/l/chat/19:20c09354a46b42d6b5e1431045bf018b@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D'
 };
 // 一括チェック結果画面の下部にある登録欄で登録・変更したものはここ(このブラウザのlocalStorage)に保存され、
 // 自分のブラウザだけで有効。全員に反映したい場合はDEFAULT_DEPARTMENT_CHAT_LINKSへの追加を依頼する。
@@ -166,8 +168,17 @@ function saveLocalDeptLinks(links){
  try{localStorage.setItem(DEPT_CHAT_LINKS_KEY,JSON.stringify(links));}catch(e){}
 }
 var localDeptLinks=loadLocalDeptLinks();
-function getDeptChatLink(name){
- return localDeptLinks[name]||DEFAULT_DEPARTMENT_CHAT_LINKS[name]||null;
+function findDeptLinkMatch(path){
+ for(var i=path.length-1;i>=0;i--){
+  var name=path[i];
+  if(localDeptLinks[name])return{name:name,link:localDeptLinks[name],source:'local'};
+  if(DEFAULT_DEPARTMENT_CHAT_LINKS[name])return{name:name,link:DEFAULT_DEPARTMENT_CHAT_LINKS[name],source:'default'};
+ }
+ return null;
+}
+function getDeptChatLink(path){
+ var m=findDeptLinkMatch(path);
+ return m?m.link:null;
 }
 
 function findSystemSettingLink(){
@@ -336,9 +347,9 @@ function showTeamsComposer(name,remainingMin,mode){
   document.body.appendChild(box);
  });
 }
-async function handleTeamsClick(name,remainingMin,scopeLabel,mode){
- if(mode==='department'&&!getDeptChatLink(scopeLabel)){
-  alert('「'+scopeLabel+'」のTeamsチャットリンクが登録されていません。\nこの結果画面の下部から登録してください。');
+async function handleTeamsClick(name,remainingMin,path,scopeLabel,mode){
+ if(mode==='department'&&!getDeptChatLink(path)){
+  alert('「'+scopeLabel+'」およびその上位部署にTeamsチャットリンクが登録されていません。\nこの結果画面の下部から登録してください。');
   return;
  }
 
@@ -347,7 +358,7 @@ async function handleTeamsClick(name,remainingMin,scopeLabel,mode){
 
  if(mode==='department'){
   copyToClipboard(msg);
-  window.open(getDeptChatLink(scopeLabel),'_blank');
+  window.open(getDeptChatLink(path),'_blank');
   return;
  }
 
@@ -412,20 +423,20 @@ function showSummary(path,scopeLabel,results){
    tdName.appendChild(detailBtn);
 
    var teamsIndivBtn=document.createElement('button');
-   teamsIndivBtn.textContent='Teams(個別)';
+   teamsIndivBtn.textContent='Teams連絡「個別」';
    teamsIndivBtn.title='本人と1対1のTeamsチャットを開きます';
    teamsIndivBtn.style='margin-left:6px;padding:1px 8px;font-size:11px';
    teamsIndivBtn.onclick=function(){
-    handleTeamsClick(r.name,OVERTIME_LIMIT_MIN-r.total,scopeLabel,'individual');
+    handleTeamsClick(r.name,OVERTIME_LIMIT_MIN-r.total,path,scopeLabel,'individual');
    };
    tdName.appendChild(teamsIndivBtn);
 
    var teamsDeptBtn=document.createElement('button');
-   teamsDeptBtn.textContent='Teams(部署)';
+   teamsDeptBtn.textContent='Teams連絡「部署」';
    teamsDeptBtn.title='この部署の既存Teamsチャットへコピー＆開きます(要リンク登録)';
    teamsDeptBtn.style='margin-left:4px;padding:1px 8px;font-size:11px';
    teamsDeptBtn.onclick=function(){
-    handleTeamsClick(r.name,OVERTIME_LIMIT_MIN-r.total,scopeLabel,'department');
+    handleTeamsClick(r.name,OVERTIME_LIMIT_MIN-r.total,path,scopeLabel,'department');
    };
    tdName.appendChild(teamsDeptBtn);
 
@@ -484,7 +495,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※尾頭橋営業所のTeamsチャットを共有登録しました。登録済みは緑字で表示されます。26/09/29';
+ changelog.textContent='※Teamsリンクを上位の部署まで遡って一致判定するようにしました(冷熱1G/尾頭橋営業所 登録済み)。26/09/29';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
@@ -493,7 +504,7 @@ function showSummary(path,scopeLabel,results){
  box.appendChild(legend);
  box.appendChild(notice);
  box.appendChild(changelog);
- box.appendChild(buildDeptLinkRegistrationRow(scopeLabel));
+ box.appendChild(buildDeptLinkRegistrationRow(path,scopeLabel));
  document.body.appendChild(box);
 }
 
@@ -869,14 +880,19 @@ function chooseDepartment(options,titleText,showBack){
 function showTeamsHelpAlert(){
  alert('【Teamsチャットのリンクの取得方法】\n\n1. Teams(アプリまたはWeb版)を開く\n2. 左側のチャット一覧から、リンクを登録したいチャットを開く\n3. チャット名の右側にある「…」(その他のオプション)をクリック\n4. 「リンクをコピー」を選択する\n5. コピーされたURLを、この画面の入力欄に貼り付けて保存する\n\n※ここで登録したリンクは自分のブラウザだけで使われます。全員に共有したい場合は山田に登録を依頼してください。');
 }
-function buildDeptLinkRegistrationRow(scopeLabel){
+function buildDeptLinkRegistrationRow(path,scopeLabel){
  var wrap=document.createElement('div');
  wrap.style='margin-top:12px;padding-top:10px;border-top:1px solid #ddd';
 
- var hasDefault=!!DEFAULT_DEPARTMENT_CHAT_LINKS[scopeLabel];
+ var match=findDeptLinkMatch(path);
  var label=document.createElement('div');
- label.textContent=hasDefault?'この部署のTeamsチャット連携：✓ 登録済み(全員共有)':'この部署のTeamsチャット連携';
- label.style='font-size:12px;margin-bottom:4px;'+(hasDefault?'color:#0a7d00;font-weight:700':'color:#555');
+ if(match){
+  label.textContent='Teamsチャット連携：✓「'+match.name+'」で登録済み'+(match.source==='local'?'(個人登録)':'(全員共有)');
+  label.style='font-size:12px;margin-bottom:4px;color:#0a7d00;font-weight:700';
+ }else{
+  label.textContent='この部署のTeamsチャット連携';
+  label.style='font-size:12px;margin-bottom:4px;color:#555';
+ }
  wrap.appendChild(label);
 
  var row=document.createElement('div');
@@ -884,7 +900,7 @@ function buildDeptLinkRegistrationRow(scopeLabel){
 
  var input=document.createElement('input');
  input.type='text';
- input.placeholder=hasDefault?'(共有登録済み。上書きする場合のみ入力)':'https://teams.microsoft.com/l/chat/...';
+ input.placeholder=match?'(「'+match.name+'」で登録済み。「'+scopeLabel+'」専用に上書きする場合のみ入力)':'https://teams.microsoft.com/l/chat/...';
  input.value=localDeptLinks[scopeLabel]||'';
  input.style='flex:1;min-width:0;box-sizing:border-box;padding:4px;font-size:12px';
  row.appendChild(input);
