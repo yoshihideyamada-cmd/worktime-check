@@ -149,18 +149,25 @@ function buildPersonDetailBox(details,total,henkeiTotal){
 var OVERTIME_LIMIT_MIN=34.75*60;
 
 // 部署名(scopeLabelと一致)→その部署の「定時連絡」等の既存Teamsチャットへのリンク。
-// 部署選択画面の各ボタン横の「🔗設定」から登録・変更できる(このブラウザに保存されます)。
+// ここに書いたものは全員に共有される(山田が管理・git push)。
+var DEFAULT_DEPARTMENT_CHAT_LINKS={
+};
+// 部署選択画面の各ボタン横の「🔗設定」から登録・変更したものはここ(このブラウザのlocalStorage)に保存され、
+// 自分のブラウザだけで有効。全員に反映したい場合はDEFAULT_DEPARTMENT_CHAT_LINKSへの追加を依頼する。
 var DEPT_CHAT_LINKS_KEY='zangyoDeptChatLinks';
-function loadDeptLinks(){
+function loadLocalDeptLinks(){
  try{
   var raw=localStorage.getItem(DEPT_CHAT_LINKS_KEY);
   return raw?JSON.parse(raw):{};
  }catch(e){return{};}
 }
-function saveDeptLinks(links){
+function saveLocalDeptLinks(links){
  try{localStorage.setItem(DEPT_CHAT_LINKS_KEY,JSON.stringify(links));}catch(e){}
 }
-var DEPARTMENT_CHAT_LINKS=loadDeptLinks();
+var localDeptLinks=loadLocalDeptLinks();
+function getDeptChatLink(name){
+ return localDeptLinks[name]||DEFAULT_DEPARTMENT_CHAT_LINKS[name]||null;
+}
 
 function findSystemSettingLink(){
  var anchors=document.querySelectorAll('a');
@@ -296,7 +303,7 @@ function showTeamsComposer(name,remainingMin,scopeLabel){
 
   select.onchange=function(){textarea.value=templates[select.value];};
 
-  var hasDeptLink=!!DEPARTMENT_CHAT_LINKS[scopeLabel];
+  var hasDeptLink=!!getDeptChatLink(scopeLabel);
   var hint=document.createElement('div');
   hint.textContent=hasDeptLink
    ?'「開く」を押すとこの内容がコピーされ、部署のTeamsチャットが開きます。開いたら貼り付け(Ctrl+V)て送信してください。'
@@ -333,7 +340,7 @@ async function handleTeamsClick(name,remainingMin,scopeLabel){
  var msg=await showTeamsComposer(name,remainingMin,scopeLabel);
  if(!msg)return;
 
- var link=DEPARTMENT_CHAT_LINKS[scopeLabel];
+ var link=getDeptChatLink(scopeLabel);
  if(link){
   copyToClipboard(msg);
   window.open(link,'_blank');
@@ -463,7 +470,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※部署選択画面からTeamsチャットのリンクを登録できるようにしました。26/09/29';
+ changelog.textContent='※Teamsチャットリンクを共有登録(山田管理)と個人登録(自分のブラウザのみ)に分けました。26/09/29';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
@@ -838,21 +845,34 @@ function chooseDepartment(options,titleText,showBack){
    row.appendChild(btn);
 
    var linkBtn=document.createElement('button');
-   var hasLink=!!DEPARTMENT_CHAT_LINKS[opt.value];
-   linkBtn.textContent=hasLink?'🔗済':'🔗設定';
-   linkBtn.title='「'+opt.value+'」のTeamsチャットリンクを設定';
-   linkBtn.style='padding:0 8px;font-size:11px;white-space:nowrap;color:'+(hasLink?'#0a7d00':'#888');
+   function refreshLinkBtn(){
+    var hasDefault=!!DEFAULT_DEPARTMENT_CHAT_LINKS[opt.value];
+    var hasLocal=!!localDeptLinks[opt.value];
+    if(hasLocal){
+     linkBtn.textContent='🔗個人登録済';
+     linkBtn.title='このブラウザにだけ登録されています(他の人には反映されません)。クリックで変更・削除できます。';
+     linkBtn.style='padding:0 8px;font-size:11px;white-space:nowrap;color:#0a7d00';
+    }else if(hasDefault){
+     linkBtn.textContent='🔗共有登録済';
+     linkBtn.title='全員に共有されているリンクが設定済みです。クリックするとこのブラウザ用に上書き登録できます。';
+     linkBtn.style='padding:0 8px;font-size:11px;white-space:nowrap;color:#0645ad';
+    }else{
+     linkBtn.textContent='🔗未登録';
+     linkBtn.title='Teamsチャットのリンクを登録します。ここで登録するのはこのブラウザだけです。全員に反映したい場合は山田に共有登録を依頼してください。';
+     linkBtn.style='padding:0 8px;font-size:11px;white-space:nowrap;color:#888';
+    }
+   }
+   refreshLinkBtn();
    linkBtn.onclick=function(e){
     e.stopPropagation();
-    var current=DEPARTMENT_CHAT_LINKS[opt.value]||'';
-    var input=prompt('「'+opt.value+'」のTeamsチャットへのリンクを入力してください。\n(空にしてOKすると削除します)',current);
+    var current=localDeptLinks[opt.value]||DEFAULT_DEPARTMENT_CHAT_LINKS[opt.value]||'';
+    var input=prompt('「'+opt.value+'」のTeamsチャットへのリンクを入力してください。\n(このブラウザだけに保存されます。空にしてOKすると削除します)',current);
     if(input===null)return;
     input=input.trim();
-    if(input)DEPARTMENT_CHAT_LINKS[opt.value]=input;
-    else delete DEPARTMENT_CHAT_LINKS[opt.value];
-    saveDeptLinks(DEPARTMENT_CHAT_LINKS);
-    linkBtn.textContent=input?'🔗済':'🔗設定';
-    linkBtn.style='padding:0 8px;font-size:11px;white-space:nowrap;color:'+(input?'#0a7d00':'#888');
+    if(input)localDeptLinks[opt.value]=input;
+    else delete localDeptLinks[opt.value];
+    saveLocalDeptLinks(localDeptLinks);
+    refreshLinkBtn();
    };
    row.appendChild(linkBtn);
 
