@@ -143,6 +143,142 @@ function buildPersonDetailBox(details,total,henkeiTotal){
  }
  return box;
 }
+var OVERTIME_LIMIT_MIN=34.75*60;
+
+function findSystemSettingLink(){
+ var anchors=document.querySelectorAll('a');
+ var i;
+ for(i=0;i<anchors.length;i++){
+  if((anchors[i].textContent||'').trim()==='システム設定'&&/side-menus-xs/.test(anchors[i].className))return anchors[i];
+ }
+ for(i=0;i<anchors.length;i++){
+  if((anchors[i].textContent||'').trim()==='システム設定')return anchors[i];
+ }
+ return null;
+}
+function findUserMenuLink(){
+ var heads=document.querySelectorAll('.xs-system-menulist-head');
+ for(var i=0;i<heads.length;i++){
+  if(heads[i].textContent.trim()==='ユーザー'){
+   var a=heads[i].closest('a.xs-transition-link')||heads[i].closest('a');
+   if(a)return a;
+  }
+ }
+ return null;
+}
+function findUserRowLinkByName(name){
+ var tables=document.querySelectorAll('table');
+ for(var ti=0;ti<tables.length;ti++){
+  var rows=tables[ti].querySelectorAll('tr');
+  for(var ri=0;ri<rows.length;ri++){
+   var cells=rows[ri].cells;
+   if(!cells||cells.length<2)continue;
+   var a=cells[1].querySelector('a[onclick^="_userInfoEdit"]');
+   if(a&&a.textContent.trim()===name)return a;
+  }
+ }
+ return null;
+}
+async function fetchUserEmail(name){
+ var sysLink=findSystemSettingLink();
+ if(!sysLink)return{error:'システム設定リンクが見つかりません'};
+ sysLink.click();
+
+ var userLink=await waitFor(findUserMenuLink,8000);
+ if(!userLink)return{error:'ユーザーメニューが見つかりません'};
+ userLink.click();
+
+ var rowLink=await waitFor(function(){return findUserRowLinkByName(name);},8000);
+ if(!rowLink)return{error:'一覧に「'+name+'」が見つかりません'};
+
+ var staleInputs=Array.prototype.slice.call(document.querySelectorAll('input[id^="addressValueEdit"]'));
+ rowLink.click();
+
+ var email=await waitFor(function(){
+  var inputs=Array.prototype.slice.call(document.querySelectorAll('input[id^="addressValueEdit"]'));
+  var fresh=inputs.filter(function(inp){return staleInputs.indexOf(inp)===-1;});
+  var pool=fresh.length?fresh:inputs;
+  var hit=null;
+  for(var i=0;i<pool.length;i++){if(/@/.test(pool[i].value)){hit=pool[i];break;}}
+  return hit?hit.value.trim():null;
+ },8000);
+ if(!email)return{error:'メールアドレスが取得できませんでした'};
+ return{email:email};
+}
+function showTeamsComposer(name,remainingMin){
+ return new Promise(function(resolve){
+  var old=document.getElementById('__zangyo_teams');
+  if(old)old.remove();
+  var box=document.createElement('div');
+  box.id='__zangyo_teams';
+  box.style='position:fixed;top:12px;right:12px;z-index:1000000;background:white;color:black;border:2px solid #333;padding:14px 16px;width:340px;max-width:92vw;max-height:88vh;overflow:auto;box-shadow:0 4px 16px #0005;font:14px Meiryo,sans-serif;line-height:1.6';
+
+  var title=document.createElement('div');
+  title.textContent=name+'さんへTeams連絡';
+  title.style='font-weight:700;margin-bottom:10px';
+  box.appendChild(title);
+
+  var remainStr=(remainingMin/60).toFixed(2)+'h';
+  var templates=[
+   '今月の残業残りは'+remainStr+'です。計画的な勤務をお願いします。',
+   '残業時間が上限に近づいています(残り'+remainStr+')。至急ご確認ください。',
+   '本日は定時(17:30)での退社にご協力ください。',
+   ''
+  ];
+  var labels=['プリセット1：残り時間のお知らせ','プリセット2：上限接近の警告','プリセット3：定時退社のお願い','自由入力のみ'];
+
+  var select=document.createElement('select');
+  select.style='width:100%;margin-bottom:8px;padding:4px';
+  labels.forEach(function(lbl,i){
+   var opt=document.createElement('option');
+   opt.value=i;
+   opt.textContent=lbl;
+   select.appendChild(opt);
+  });
+  box.appendChild(select);
+
+  var textarea=document.createElement('textarea');
+  textarea.style='width:100%;height:100px;box-sizing:border-box;padding:6px;font-size:13px';
+  textarea.value=templates[0];
+  box.appendChild(textarea);
+
+  select.onchange=function(){textarea.value=templates[select.value];};
+
+  var btnRow=document.createElement('div');
+  btnRow.style='margin-top:10px;text-align:right';
+
+  var cancel=document.createElement('button');
+  cancel.textContent='キャンセル';
+  cancel.style='margin-right:8px;padding:4px 12px';
+  cancel.onclick=function(){box.remove();resolve(null);};
+
+  var send=document.createElement('button');
+  send.textContent='Teamsを開く';
+  send.style='padding:4px 12px;font-weight:700';
+  send.onclick=function(){
+   var msg=textarea.value;
+   box.remove();
+   resolve(msg);
+  };
+
+  btnRow.appendChild(cancel);
+  btnRow.appendChild(send);
+  box.appendChild(btnRow);
+
+  document.body.appendChild(box);
+ });
+}
+async function handleTeamsClick(name,remainingMin){
+ var msg=await showTeamsComposer(name,remainingMin);
+ if(!msg)return;
+ showLoading(name+'さんのメールアドレスを取得しています...');
+ var result=await fetchUserEmail(name);
+ hideLoading();
+ if(result.error){alert(name+'さんのメール取得に失敗しました:\n'+result.error);return;}
+ var url='https://teams.microsoft.com/l/chat/0/0?users='+encodeURIComponent(result.email)+'&message='+encodeURIComponent(msg);
+ window.open(url,'_blank');
+}
+
 function showSummary(path,scopeLabel,results){
  var old=document.getElementById('__zangyo_result');
  if(old)old.remove();
@@ -193,6 +329,14 @@ function showSummary(path,scopeLabel,results){
    detailBtn.textContent='内訳';
    detailBtn.style='margin-left:8px;padding:1px 8px;font-size:11px';
    tdName.appendChild(detailBtn);
+
+   var teamsBtn=document.createElement('button');
+   teamsBtn.textContent='Teams連絡';
+   teamsBtn.style='margin-left:6px;padding:1px 8px;font-size:11px';
+   teamsBtn.onclick=function(){
+    handleTeamsClick(r.name,OVERTIME_LIMIT_MIN-r.total);
+   };
+   tdName.appendChild(teamsBtn);
 
    var detailTd=document.createElement('td');
    detailTd.colSpan=2;
@@ -249,7 +393,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※時間有給に対応しました。26/08/27';
+ changelog.textContent='※Teamsで連絡ボタンを追加しました。26/09/29';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
