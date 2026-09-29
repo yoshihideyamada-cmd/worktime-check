@@ -153,6 +153,66 @@ var OVERTIME_LIMIT_MIN=34.75*60;
 var DEPARTMENT_CHAT_LINKS={
 };
 
+function findSystemSettingLink(){
+ var anchors=document.querySelectorAll('a');
+ var i;
+ for(i=0;i<anchors.length;i++){
+  if((anchors[i].textContent||'').trim()==='システム設定'&&/side-menus-xs/.test(anchors[i].className))return anchors[i];
+ }
+ for(i=0;i<anchors.length;i++){
+  if((anchors[i].textContent||'').trim()==='システム設定')return anchors[i];
+ }
+ return null;
+}
+function findUserMenuLink(){
+ var heads=document.querySelectorAll('.xs-system-menulist-head');
+ for(var i=0;i<heads.length;i++){
+  if(heads[i].textContent.trim()==='ユーザー'){
+   var a=heads[i].closest('a.xs-transition-link')||heads[i].closest('a');
+   if(a)return a;
+  }
+ }
+ return null;
+}
+function findUserRowLinkByName(name){
+ var tables=document.querySelectorAll('table');
+ for(var ti=0;ti<tables.length;ti++){
+  var rows=tables[ti].querySelectorAll('tr');
+  for(var ri=0;ri<rows.length;ri++){
+   var cells=rows[ri].cells;
+   if(!cells||cells.length<2)continue;
+   var a=cells[1].querySelector('a[onclick^="_userInfoEdit"]');
+   if(a&&a.textContent.trim()===name)return a;
+  }
+ }
+ return null;
+}
+async function fetchUserEmail(name){
+ var sysLink=findSystemSettingLink();
+ if(!sysLink)return{error:'システム設定リンクが見つかりません'};
+ sysLink.click();
+
+ var userLink=await waitFor(findUserMenuLink,8000);
+ if(!userLink)return{error:'ユーザーメニューが見つかりません'};
+ userLink.click();
+
+ var rowLink=await waitFor(function(){return findUserRowLinkByName(name);},8000);
+ if(!rowLink)return{error:'一覧に「'+name+'」が見つかりません'};
+
+ var staleInputs=Array.prototype.slice.call(document.querySelectorAll('input[id^="addressValueEdit"]'));
+ rowLink.click();
+
+ var email=await waitFor(function(){
+  var inputs=Array.prototype.slice.call(document.querySelectorAll('input[id^="addressValueEdit"]'));
+  var fresh=inputs.filter(function(inp){return staleInputs.indexOf(inp)===-1;});
+  var pool=fresh.length?fresh:inputs;
+  var hit=null;
+  for(var i=0;i<pool.length;i++){if(/@/.test(pool[i].value)){hit=pool[i];break;}}
+  return hit?hit.value.trim():null;
+ },8000);
+ if(!email)return{error:'メールアドレスが取得できませんでした'};
+ return{email:email};
+}
 function copyToClipboard(text){
  if(navigator.clipboard&&navigator.clipboard.writeText){
   navigator.clipboard.writeText(text).catch(function(){fallbackCopy(text);});
@@ -170,7 +230,7 @@ function fallbackCopy(text){
  try{document.execCommand('copy');}catch(e){}
  document.body.removeChild(ta);
 }
-function showTeamsComposer(name,remainingMin){
+function showTeamsComposer(name,remainingMin,scopeLabel){
  return new Promise(function(resolve){
   var old=document.getElementById('__zangyo_teams');
   if(old)old.remove();
@@ -227,8 +287,11 @@ function showTeamsComposer(name,remainingMin){
 
   select.onchange=function(){textarea.value=templates[select.value];};
 
+  var hasDeptLink=!!DEPARTMENT_CHAT_LINKS[scopeLabel];
   var hint=document.createElement('div');
-  hint.textContent='「開く」を押すとこの内容がコピーされ、部署のTeamsチャットが開きます。開いたら貼り付け(Ctrl+V)て送信してください。';
+  hint.textContent=hasDeptLink
+   ?'「開く」を押すとこの内容がコピーされ、部署のTeamsチャットが開きます。開いたら貼り付け(Ctrl+V)て送信してください。'
+   :'この部署は既存チャット未登録のため、本人とのTeamsチャットを直接開きます(メッセージ入力済みの状態で開きます)。';
   hint.style='font-size:11px;color:#888;margin:6px 0 8px';
   box.appendChild(hint);
 
@@ -258,17 +321,23 @@ function showTeamsComposer(name,remainingMin){
  });
 }
 async function handleTeamsClick(name,remainingMin,scopeLabel){
- var msg=await showTeamsComposer(name,remainingMin);
+ var msg=await showTeamsComposer(name,remainingMin,scopeLabel);
  if(!msg)return;
 
- copyToClipboard(msg);
-
  var link=DEPARTMENT_CHAT_LINKS[scopeLabel];
- if(!link){
-  alert('「'+scopeLabel+'」のTeamsチャットリンクが未登録です。\nスクリプト内のDEPARTMENT_CHAT_LINKSに追加してください。\n\nメッセージはコピー済みです:\n\n'+msg);
+ if(link){
+  copyToClipboard(msg);
+  window.open(link,'_blank');
   return;
  }
- window.open(link,'_blank');
+
+ showLoading(name+'さんのメールアドレスを取得しています...');
+ var mainResult=await fetchUserEmail(name);
+ hideLoading();
+ if(mainResult.error){alert(name+'さんのメール取得に失敗しました:\n'+mainResult.error);return;}
+
+ var url='https://teams.microsoft.com/l/chat/0/0?users='+encodeURIComponent(mainResult.email)+'&message='+encodeURIComponent(msg);
+ window.open(url,'_blank');
 }
 
 function showSummary(path,scopeLabel,results){
@@ -385,7 +454,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※Teams連絡を部署の既存チャットへコピペする方式に変更しました。26/09/29';
+ changelog.textContent='※Teams連絡：部署チャット未登録の場合は本人との個別チャットを開く形にしました。26/09/29';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
