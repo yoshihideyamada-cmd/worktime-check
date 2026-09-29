@@ -148,10 +148,19 @@ function buildPersonDetailBox(details,total,henkeiTotal){
 }
 var OVERTIME_LIMIT_MIN=34.75*60;
 
-// 部署名(scopeLabelと一致させる)→その部署の「定時連絡」等の既存Teamsチャットへのリンク。
-// Teamsでそのチャットを開き、チャット名の右の「…」→「リンクをコピー」で取得できる。
-var DEPARTMENT_CHAT_LINKS={
-};
+// 部署名(scopeLabelと一致)→その部署の「定時連絡」等の既存Teamsチャットへのリンク。
+// 部署選択画面の各ボタン横の「🔗設定」から登録・変更できる(このブラウザに保存されます)。
+var DEPT_CHAT_LINKS_KEY='zangyoDeptChatLinks';
+function loadDeptLinks(){
+ try{
+  var raw=localStorage.getItem(DEPT_CHAT_LINKS_KEY);
+  return raw?JSON.parse(raw):{};
+ }catch(e){return{};}
+}
+function saveDeptLinks(links){
+ try{localStorage.setItem(DEPT_CHAT_LINKS_KEY,JSON.stringify(links));}catch(e){}
+}
+var DEPARTMENT_CHAT_LINKS=loadDeptLinks();
 
 function findSystemSettingLink(){
  var anchors=document.querySelectorAll('a');
@@ -454,7 +463,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※Teams連絡：部署チャット未登録の場合は本人との個別チャットを開く形にしました。26/09/29';
+ changelog.textContent='※部署選択画面からTeamsチャットのリンクを登録できるようにしました。26/09/29';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
@@ -817,13 +826,37 @@ function chooseDepartment(options,titleText,showBack){
   }
 
   normalized.forEach(function(opt){
+   var row=document.createElement('div');
+   row.style='display:flex;align-items:stretch;gap:4px;margin-bottom:'+(opt.isAll?'10px':'6px');
+
    var btn=document.createElement('button');
    btn.textContent=opt.label;
    btn.style=opt.isAll
-    ?'display:block;width:100%;text-align:left;padding:8px;margin-bottom:10px;font-weight:700;background:#fff3cd;border:1px solid #e0c060'
-    :'display:block;width:100%;text-align:left;padding:8px;margin-bottom:6px';
+    ?'flex:1;text-align:left;padding:8px;font-weight:700;background:#fff3cd;border:1px solid #e0c060'
+    :'flex:1;text-align:left;padding:8px';
    btn.onclick=function(){box.remove();resolve(opt.value);};
-   box.appendChild(btn);
+   row.appendChild(btn);
+
+   var linkBtn=document.createElement('button');
+   var hasLink=!!DEPARTMENT_CHAT_LINKS[opt.value];
+   linkBtn.textContent=hasLink?'🔗済':'🔗設定';
+   linkBtn.title='「'+opt.value+'」のTeamsチャットリンクを設定';
+   linkBtn.style='padding:0 8px;font-size:11px;white-space:nowrap;color:'+(hasLink?'#0a7d00':'#888');
+   linkBtn.onclick=function(e){
+    e.stopPropagation();
+    var current=DEPARTMENT_CHAT_LINKS[opt.value]||'';
+    var input=prompt('「'+opt.value+'」のTeamsチャットへのリンクを入力してください。\n(空にしてOKすると削除します)',current);
+    if(input===null)return;
+    input=input.trim();
+    if(input)DEPARTMENT_CHAT_LINKS[opt.value]=input;
+    else delete DEPARTMENT_CHAT_LINKS[opt.value];
+    saveDeptLinks(DEPARTMENT_CHAT_LINKS);
+    linkBtn.textContent=input?'🔗済':'🔗設定';
+    linkBtn.style='padding:0 8px;font-size:11px;white-space:nowrap;color:'+(input?'#0a7d00':'#888');
+   };
+   row.appendChild(linkBtn);
+
+   box.appendChild(row);
   });
 
   var cancel=document.createElement('button');
