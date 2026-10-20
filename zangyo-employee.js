@@ -148,7 +148,7 @@ function show(title,u,details,henkeiTotal){
  notice.style='white-space:pre-line;margin-top:12px';
 
  var changelog=document.createElement('div');
- changelog.textContent='※10/20 事前申請あり⇒残業なし に対応しました。';
+ changelog.textContent='※事前申請あり⇒残業なしに対応しました。26/10/20';
  changelog.style='color:#0645ad;margin-top:4px';
 
  box.appendChild(close);
