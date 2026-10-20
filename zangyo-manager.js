@@ -141,7 +141,7 @@ function show(title,u,details){
  notice.style='white-space:pre-line;margin-top:12px';
 
  var changelog=document.createElement('div');
- changelog.textContent='※申請のみの予定日に「残業◯h（予定）」を表示するようにしました。26/10/20';
+ changelog.textContent='※事前申請のみ(事後報告なし)は打刻で計算し、「申請有⇒残業無」「予定」を表示するようにしました。26/10/20';
  changelog.style='color:#0645ad;margin-top:4px';
 
  box.appendChild(close);
