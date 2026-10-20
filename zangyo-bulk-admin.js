@@ -514,7 +514,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※冷熱1G 稲沢営業所のTeamsチャットを共有登録しました。26/09/29';
+ changelog.textContent='※事前申請ありで事後報告が空白の日は、打刻時間で計算するようにしました。26/10/20';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
@@ -653,17 +653,20 @@ function calcUserTotal(reasonMap,isManager,gapMap){
     continue;
    }
 
-   ea=z(t(g(v[4])),t(g(v[3])));
+   actualIn=t(g(v[5]));
+   actualOut=t(g(v[6]));
+   ea=t(g(v[4]));
+   if(ea<0){ea=t(g(v[3]));if(ea>=0&&actualIn>=0)ea=Math.max(ea,roundUp15(actualIn));}
    sc=g(v[7]);
    ec=g(v[8]);
    os0=t(sc);
-   os=z(t(g(v[9])),os0);
+   os=t(g(v[9]));
+   if(os<0){os=os0;if(os>=0&&actualIn>=0)os=Math.max(os,roundUp15(actualIn));}
    er=t(g(v[10]));
    oe0=t(ec);
-   oe=z(er,oe0);
+   oe=er;
+   if(oe<0){oe=oe0;if(oe>=0&&actualOut>=0)oe=Math.min(oe,roundDown15(actualOut));}
    wait=/事後報告\s*入力待ち|進行中|xs-tc-badge-orange/.test(sc+ec+h(v[7])+h(v[8]));
-   actualIn=t(g(v[5]));
-   actualOut=t(g(v[6]));
    lv=leaveMinutes(j);
    isHenkei=/変形/.test(kubun);
    lateStart=lv>0&&ea<0&&actualIn>=0&&actualIn>540+30;
@@ -672,7 +675,7 @@ function calcUserTotal(reasonMap,isManager,gapMap){
 
    p=(ea>=0?ea:(isHenkei&&actualIn>=0?actualIn:540))>734;
    st=ea>=0?ea:(isHenkei&&actualIn>=0?roundUp15(actualIn):(lateStart?roundUp15(actualIn):540));
-   en=er>=0?er:(isHenkei&&actualOut>=0?roundDown15(actualOut):(earlyEnd?roundDown15(actualOut):(wait&&oe0>=0?oe0:1050)));
+   en=er>=0?er:(isHenkei&&actualOut>=0?roundDown15(actualOut):(earlyEnd?roundDown15(actualOut):(oe0>=0&&actualOut>=0?Math.max(1050,Math.min(oe0,roundDown15(actualOut))):(wait&&oe0>=0?oe0:1050))));
    gap=0;
    for(var gi=0;gi<gapPairs.length;gi++)gap+=c(gapPairs[gi][0],gapPairs[gi][1],p);
 
