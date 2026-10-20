@@ -141,7 +141,7 @@ function show(title,u,details){
  notice.style='white-space:pre-line;margin-top:12px';
 
  var changelog=document.createElement('div');
- changelog.textContent='※事前申請ありで事後報告が空白の日は、打刻時間で計算するようにしました。26/10/20';
+ changelog.textContent='※10/20 事前申請あり⇒残業なし に対応しました。';
  changelog.style='color:#0645ad;margin-top:4px';
 
  box.appendChild(close);
