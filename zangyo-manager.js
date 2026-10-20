@@ -141,7 +141,7 @@ function show(title,u,details){
  notice.style='white-space:pre-line;margin-top:12px';
 
  var changelog=document.createElement('div');
- changelog.textContent='※（申請有⇒残業無）の表示を追加しました。26/10/20';
+ changelog.textContent='※申請のみの予定日に「残業◯h（予定）」を表示するようにしました。26/10/20';
  changelog.style='color:#0645ad;margin-top:4px';
 
  box.appendChild(close);
@@ -277,9 +277,9 @@ function runCalc(reasonMap,gapMap){
 
    actualIn=t(g(v[5]));
    actualOut=t(g(v[6]));
-   var reqCut=false;
+   var reqCut=false,planned=false;
    ea=t(g(v[4]));
-   if(ea<0){ea=t(g(v[3]));if(ea>=0&&actualIn>=0){var eaPun=roundUp15(actualIn);if(eaPun>ea){ea=eaPun;reqCut=true;}}}
+   if(ea<0){ea=t(g(v[3]));if(ea>=0){if(actualIn>=0){var eaPun=roundUp15(actualIn);if(eaPun>ea){ea=eaPun;reqCut=true;}}else planned=true;}}
    sc=g(v[7]);
    ec=g(v[8]);
    os0=t(sc);
@@ -299,6 +299,7 @@ function runCalc(reasonMap,gapMap){
    st=ea>=0?ea:(lateStart?roundUp15(actualIn):540);
    en=er>=0?er:(earlyEnd?roundDown15(actualOut):(oe0>=0&&actualOut>=0?Math.max(1050,Math.min(oe0,roundDown15(actualOut))):(wait&&oe0>=0?oe0:1050)));
    if(er<0&&oe0>=0&&actualOut>=0&&!earlyEnd&&en<oe0)reqCut=true;
+   if(er<0&&oe0>=0&&actualOut<0&&wait)planned=true;
    gap=0;
    nightGap=0;
    for(var gi=0;gi<gapPairs.length;gi++){
@@ -338,6 +339,7 @@ function runCalc(reasonMap,gapMap){
     var label='残業：'+hours(m);
     if(isNightDuty)label+='('+nightLabel+hours(nDuty)+')';
     if(reqCut)label+='（申請有⇒残業無）';
+    if(planned)label+='（予定）';
     details.push({text:d+'　'+label,warning:dayWarnings.length?'打刻ミスの可能性：\n'+dayWarnings.join('\n'):null,gapValue:gap>0?hours(gap):null});
    }
    if(m>0)last=m;
