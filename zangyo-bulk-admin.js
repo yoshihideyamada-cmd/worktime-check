@@ -514,7 +514,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※事前申請あり⇒残業なしに対応しました。26/10/20';
+ changelog.textContent='※（申請有⇒残業無）の表示を追加しました。26/10/20';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
@@ -655,8 +655,9 @@ function calcUserTotal(reasonMap,isManager,gapMap){
 
    actualIn=t(g(v[5]));
    actualOut=t(g(v[6]));
+   var reqCut=false;
    ea=t(g(v[4]));
-   if(ea<0){ea=t(g(v[3]));if(ea>=0&&actualIn>=0)ea=Math.max(ea,roundUp15(actualIn));}
+   if(ea<0){ea=t(g(v[3]));if(ea>=0&&actualIn>=0){var eaPun=roundUp15(actualIn);if(eaPun>ea){ea=eaPun;reqCut=true;}}}
    sc=g(v[7]);
    ec=g(v[8]);
    os0=t(sc);
@@ -676,6 +677,7 @@ function calcUserTotal(reasonMap,isManager,gapMap){
    p=(ea>=0?ea:(isHenkei&&actualIn>=0?actualIn:540))>734;
    st=ea>=0?ea:(isHenkei&&actualIn>=0?roundUp15(actualIn):(lateStart?roundUp15(actualIn):540));
    en=er>=0?er:(isHenkei&&actualOut>=0?roundDown15(actualOut):(earlyEnd?roundDown15(actualOut):(oe0>=0&&actualOut>=0?Math.max(1050,Math.min(oe0,roundDown15(actualOut))):(wait&&oe0>=0?oe0:1050))));
+   if(er<0&&oe0>=0&&actualOut>=0&&!isHenkei&&!earlyEnd&&en<oe0)reqCut=true;
    gap=0;
    for(var gi=0;gi<gapPairs.length;gi++)gap+=c(gapPairs[gi][0],gapPairs[gi][1],p);
 
@@ -715,9 +717,10 @@ function calcUserTotal(reasonMap,isManager,gapMap){
 
    u+=m;
    if(isHenkei)henkeiTotal+=m;
-   if(m!==0||dayWarnings.length){
+   if(m!==0||dayWarnings.length||reqCut){
     var label=isHenkei?'変形：'+(m>=0?'+':'')+hours(m):'残業：'+hours(m);
     if(isNightDuty)label+='('+nightLabel+hours(nDuty)+')';
+    if(reqCut)label+='（申請有⇒残業無）';
     details.push({text:d+'　'+label,warning:dayWarnings.length?'打刻ミスの可能性：\n'+dayWarnings.join('\n'):null,color:isHenkei?'#0645ad':null,gapValue:gap>0?hours(gap):null});
    }
    if(m>0)last=m;
