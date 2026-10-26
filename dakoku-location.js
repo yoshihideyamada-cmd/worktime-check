@@ -450,16 +450,21 @@ function askSettings(ctx){
 
 function gmapUrl(r){return'https://www.google.com/maps?q='+r.lat+','+r.lon;}
 function csvCell(v){v=String(v==null?'':v);return/[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+function personRows(res){
+ var list=(res.recs||[]).map(function(r){return{name:res.name||r.user,dt:r.dt,kind:r.kind,kbn:r.kbn,lat:r.lat,lon:r.lon,addr:r.addr||null};});
+ list.sort(function(a,b){return a.dt<b.dt?1:(a.dt>b.dt?-1:0);});
+ return list;
+}
 function buildRows(results){
  var out=[];
- results.forEach(function(res){
-  (res.recs||[]).forEach(function(r){out.push({name:res.name||r.user,dt:r.dt,kind:r.kind,kbn:r.kbn,lat:r.lat,lon:r.lon,addr:r.addr||null});});
- });
- out.sort(function(a,b){
-  if(a.name!==b.name)return a.name<b.name?-1:1;
-  return a.dt<b.dt?1:(a.dt>b.dt?-1:0);
- });
+ results.forEach(function(res){out=out.concat(personRows(res));});
  return out;
+}
+function dateLabel(dt){
+ var m=/^(\d{4})\/(\d{1,2})\/(\d{1,2})/.exec(dt);
+ if(!m)return dt;
+ var w='日月火水木金土'.charAt(new Date(+m[1],m[2]-1,+m[3]).getDay());
+ return m[1]+'/'+pad(+m[2])+'/'+pad(+m[3])+'('+w+')';
 }
 function toTable(rows,sep){
  var head=['氏名','打刻日時','打刻機種','区分','住所','地図URL'];
@@ -562,81 +567,131 @@ function showResult(scopeLabel,st,results,geo){
  var rows=buildRows(results);
  var withLoc=rows.filter(function(r){return r.lat!==null;}).length;
  var people=results.filter(function(r){return!r.error;}).length;
- box.appendChild(mk('div','margin-bottom:6px','対象 '+people+'人 ／ 打刻 '+rows.length+'件(位置情報あり '+withLoc+'件)'));
+ box.appendChild(mk('div','margin-bottom:6px','対象 '+people+'人 ／ 打刻 '+rows.length+'件(位置情報あり '+withLoc+'件・なし '+(rows.length-withLoc)+'件)'));
 
- var bar=mk('div','margin-bottom:8px');
+ var persons=[];
  var onlyLoc=document.createElement('input');onlyLoc.type='checkbox';onlyLoc.checked=false;
+ function filtered(list){return onlyLoc.checked?list.filter(function(r){return r.lat!==null;}):list;}
+
+ var bar=mk('div','margin-bottom:6px');
  var onlyLab=mk('label','margin-right:12px');
  onlyLab.appendChild(onlyLoc);onlyLab.appendChild(document.createTextNode(' 位置情報ありのみ表示'));
  bar.appendChild(onlyLab);
+ var openAll=mk('button','margin-right:4px;padding:2px 10px','全員開く');
+ openAll.onclick=function(){persons.forEach(function(p){p.setOpen(true);});};
+ var closeAll=mk('button','margin-right:12px;padding:2px 10px','全員閉じる');
+ closeAll.onclick=function(){persons.forEach(function(p){p.setOpen(false);});};
  var status=mk('span','font-size:12px;color:#0a7d00;margin-left:8px');
  var copyBtn=mk('button','margin-right:6px;padding:2px 10px','Excel用にコピー');
  copyBtn.onclick=function(){
-  var list=onlyLoc.checked?rows.filter(function(r){return r.lat!==null;}):rows;
+  var list=filtered(rows);
   copyText(toTable(list,'\t')).then(function(){status.textContent='コピーしました('+list.length+'件)。Excelに貼り付けできます。';});
  };
  var csvBtn=mk('button','margin-right:6px;padding:2px 10px','CSV保存');
  csvBtn.onclick=function(){
-  var list=onlyLoc.checked?rows.filter(function(r){return r.lat!==null;}):rows;
-  var blob=new Blob(['\ufeff'+toTable(list,',')],{type:'text/csv;charset=utf-8'});
+  var list=filtered(rows);
+  var blob=new Blob(['﻿'+toTable(list,',')],{type:'text/csv;charset=utf-8'});
   var a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download='打刻位置一覧_'+st.fromS+'_'+st.toS+'.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
  };
- bar.appendChild(copyBtn);bar.appendChild(csvBtn);bar.appendChild(status);
+ bar.appendChild(openAll);bar.appendChild(closeAll);bar.appendChild(copyBtn);bar.appendChild(csvBtn);bar.appendChild(status);
  box.appendChild(bar);
+ box.appendChild(mk('div','font-size:12px;color:#c00000;margin-bottom:6px','赤字の名前＝位置情報なしの打刻がある人(名前をクリックすると詳細が開きます)'));
 
- var table=mk('table','width:100%;border-collapse:collapse;font-size:13px');
- var head=document.createElement('tr');
- ['氏名','打刻日時','機種','区分','住所','地図'].forEach(function(h){
-  head.appendChild(mk('th','text-align:left;border-bottom:2px solid #ccc;padding:4px;white-space:nowrap',h));
- });
- table.appendChild(head);
- var body=document.createElement('tbody');
- table.appendChild(body);
- function render(){
-  while(body.firstChild)body.removeChild(body.firstChild);
-  var list=onlyLoc.checked?rows.filter(function(r){return r.lat!==null;}):rows;
-  var lastName=null;
-  list.forEach(function(r){
-   var tr=document.createElement('tr');
-   var td=function(t,st2){var e=mk('td','padding:3px 4px;border-bottom:1px solid #eee;'+(st2||''),t);tr.appendChild(e);return e;};
-   var red=r.lat===null?'color:#c00000;':'';
-   td(r.name===lastName?'':r.name,red+'white-space:nowrap');
-   lastName=r.name;
-   td(r.dt,red+'white-space:nowrap');
-   td(r.kind,red+'font-size:12px');
-   td(r.kbn,red+'white-space:nowrap');
-   if(r.lat!==null){
-    td(r.addr||'(住所を取得できませんでした)',r.addr?'':'color:#999');
-    var tdm=td('');
-    var a=mk('a','color:#0645ad','Googleマップ');
-    a.href=gmapUrl(r);a.target='_blank';a.rel='noopener noreferrer';
-    tdm.appendChild(a);
-   }else{
-    td('位置なし','color:#c00000;font-weight:700');
-    td('');
-   }
-   body.appendChild(tr);
-  });
-  if(!list.length){
-   var tr2=document.createElement('tr');
-   var tdE=mk('td','padding:10px;color:#666','該当する打刻はありません。');
-   tdE.colSpan=6;tr2.appendChild(tdE);body.appendChild(tr2);
+ var listBox=mk('div','border-top:1px solid #ccc');
+ results.forEach(function(res){
+  var prs=personRows(res);
+  var nNo=prs.filter(function(r){return r.lat===null;}).length;
+  var isRed=!!res.error||nNo>0;
+  var wrap=mk('div','border-bottom:1px solid #ddd');
+  var head=mk('div','padding:6px 4px;display:flex;align-items:baseline;gap:8px;'+(res.error?'':'cursor:pointer'));
+  var arrow=mk('span','width:14px;color:#555;font-size:12px',res.error?'':'▶');
+  var nm=mk('span','font-weight:700;color:'+(isRed?'#c00000':'#000')+(res.error?'':';text-decoration:underline'),res.name||'(氏名不明)');
+  var infoText=res.error?('読み取り失敗：'+res.error):('打刻'+prs.length+'件'+(nNo?('(位置なし'+nNo+'件)'):''));
+  var info=mk('span','font-size:12px;color:'+(res.error?'#c00000':'#666'),infoText);
+  head.appendChild(arrow);head.appendChild(nm);head.appendChild(info);
+  if(!res.error){
+   var pstat=mk('span','margin-left:auto;font-size:11px;color:#0a7d00');
+   var pcopy=mk('button','padding:1px 8px;font-size:12px;white-space:nowrap','Excelコピー');
+   pcopy.title='この人の打刻を、Excelに貼り付けできる形でコピーします';
+   pcopy.onclick=function(e){
+    e.stopPropagation();
+    var list=filtered(prs);
+    if(!list.length){pstat.textContent='コピーする打刻がありません';return;}
+    copyText(toTable(list,'\t')).then(function(){
+     pstat.textContent='コピーしました('+list.length+'件)';
+     setTimeout(function(){pstat.textContent='';},3000);
+    });
+   };
+   head.appendChild(pstat);head.appendChild(pcopy);
   }
- }
- onlyLoc.onchange=render;
- render();
- box.appendChild(table);
+  wrap.appendChild(head);
 
- var errs=results.filter(function(r){return r.error;});
- if(errs.length){
-  var eb=mk('div','margin-top:10px;color:#c00000;font-size:12px;white-space:pre-line');
-  eb.textContent='読み取れなかった人:\n'+errs.map(function(r){return'・'+r.name+'：'+r.error;}).join('\n');
-  box.appendChild(eb);
- }
+  var detail=mk('div','display:none;padding:0 4px 10px 22px');
+  wrap.appendChild(detail);
+  var opened=false;
+
+  function renderDetail(){
+   while(detail.firstChild)detail.removeChild(detail.firstChild);
+   var list=filtered(prs);
+   if(!list.length){
+    detail.appendChild(mk('div','padding:6px;color:#666','該当する打刻はありません。'));
+    return;
+   }
+   var tbl=mk('table','width:100%;border-collapse:collapse;font-size:13px');
+   var hr=document.createElement('tr');
+   ['時刻','機種','区分','住所','地図'].forEach(function(h){
+    hr.appendChild(mk('th','text-align:left;border-bottom:2px solid #ccc;padding:3px 6px;white-space:nowrap',h));
+   });
+   tbl.appendChild(hr);
+   var curDate=null;
+   list.forEach(function(r){
+    var d=r.dt.slice(0,10);
+    if(d!==curDate){
+     curDate=d;
+     var dr=document.createElement('tr');
+     var dc=mk('td','padding:3px 6px;background:#eef3f8;border-top:2px solid #7a8a99;font-weight:700;font-size:12px',dateLabel(r.dt));
+     dc.colSpan=5;
+     dr.appendChild(dc);
+     tbl.appendChild(dr);
+    }
+    var tr=document.createElement('tr');
+    var td=function(t,s2){var e=mk('td','padding:3px 6px;border-bottom:1px solid #e3e3e3;'+(s2||''),t);tr.appendChild(e);return e;};
+    var red=r.lat===null?'color:#c00000;':'';
+    td(r.dt.slice(11),red+'white-space:nowrap');
+    td(r.kind,red+'font-size:12px');
+    td(r.kbn,red+'white-space:nowrap');
+    if(r.lat!==null){
+     td(r.addr||'(住所を取得できませんでした)',r.addr?'':'color:#999');
+     var tdm=td('');
+     var a=mk('a','color:#0645ad','Googleマップ');
+     a.href=gmapUrl(r);a.target='_blank';a.rel='noopener noreferrer';
+     tdm.appendChild(a);
+    }else{
+     td('位置なし','color:#c00000;font-weight:700');
+     td('');
+    }
+    tbl.appendChild(tr);
+   });
+   detail.appendChild(tbl);
+  }
+  function setOpen(v){
+   if(res.error)return;
+   opened=v;
+   detail.style.display=v?'block':'none';
+   arrow.textContent=v?'▼':'▶';
+   if(v)renderDetail();
+  }
+  head.onclick=function(){setOpen(!opened);};
+  persons.push({setOpen:setOpen,refresh:function(){if(opened)renderDetail();}});
+  listBox.appendChild(wrap);
+ });
+ onlyLoc.onchange=function(){persons.forEach(function(p){p.refresh();});};
+ box.appendChild(listBox);
+
  var trunc=results.filter(function(r){return r.truncated;});
  if(trunc.length){
   box.appendChild(mk('div','margin-top:6px;color:#c00000;font-size:12px','※途中で停止/打ち切りされた人がいます(結果は一部のみの可能性があります)'));
