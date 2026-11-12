@@ -405,7 +405,7 @@ function showSummary(path,scopeLabel,results){
  var table=document.createElement('table');
  table.style='width:100%;border-collapse:collapse;font-size:14px';
  var head=document.createElement('tr');
- head.innerHTML='<th style="text-align:left;border-bottom:1px solid #ccc;padding:4px">氏名</th><th style="text-align:right;border-bottom:1px solid #ccc;padding:4px">残業時間</th>';
+ head.innerHTML='<th style="text-align:left;border-bottom:1px solid #ccc;padding:4px">氏名</th><th style="text-align:right;border-bottom:1px solid #ccc;padding:4px">残業時間(現在/予定)</th>';
  table.appendChild(head);
 
  results.forEach(function(r){
@@ -484,7 +484,7 @@ function showSummary(path,scopeLabel,results){
      e.stopPropagation();
      toggleDetail();
     };
-    tdVal.appendChild(document.createTextNode(hours(r.total)));
+    tdVal.appendChild(document.createTextNode(hours(r.total-(r.plannedTotal||0))));
     tdVal.appendChild(mark);
    }
   }
@@ -493,9 +493,15 @@ function showSummary(path,scopeLabel,results){
    tdVal.textContent=r.error;
    tdVal.style.color='#c00000';
   }else if(!tdVal.hasChildNodes()){
-   tdVal.textContent=hours(r.total);
+   tdVal.textContent=hours(r.total-(r.plannedTotal||0));
   }
-  if(!r.error&&r.total/60>34.75)tdVal.style.color='#c00000';
+  if(!r.error){
+   var planLine=document.createElement('div');
+   planLine.textContent='予定 '+hours(r.total);
+   planLine.style='font-size:11px;font-weight:400;color:'+(r.total/60>34.75?'#c00000':'#888');
+   if((r.total-(r.plannedTotal||0))/60>34.75)tdVal.style.color='#c00000';
+   tdVal.appendChild(planLine);
+  }
 
   tr.appendChild(tdName);
   tr.appendChild(tdVal);
@@ -514,7 +520,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※事前申請のみ(事後報告なし)は打刻で計算し、「申請有⇒残業無」「予定」を表示するようにしました。26/10/20';
+ changelog.textContent='※残業時間を「現在」と「予定(現在+予定)」で表示するようにしました。26/11/12';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
@@ -628,7 +634,7 @@ function buildGapMap(tb){
 function calcUserTotal(reasonMap,isManager,gapMap){
  var mainTable=findMainTable()||document.getElementsByTagName('table')[2];
  var R=mainTable.rows;
- var u=0,last=0,i,v,d,j,kubun,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,lateStart,earlyEnd,hasAttendance,dayWarnings,isHenkei,henkeiTotal=0,gap,gapPairs,isNightDuty,nightLabel;
+ var u=0,last=0,i,v,d,j,kubun,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,lateStart,earlyEnd,hasAttendance,dayWarnings,isHenkei,henkeiTotal=0,plannedTotal=0,gap,gapPairs,isNightDuty,nightLabel;
  var details=[];
 
  for(i=1;i<R.length;i++){
@@ -718,6 +724,7 @@ function calcUserTotal(reasonMap,isManager,gapMap){
 
    u+=m;
    if(isHenkei)henkeiTotal+=m;
+   if(planned)plannedTotal+=m;
    if(m!==0||dayWarnings.length||reqCut){
     var label=isHenkei?'変形：'+(m>=0?'+':'')+hours(m):'残業：'+hours(m);
     if(isNightDuty)label+='('+nightLabel+hours(nDuty)+')';
@@ -729,7 +736,7 @@ function calcUserTotal(reasonMap,isManager,gapMap){
   }
  }
 
- return{total:u,details:details,henkeiTotal:henkeiTotal};
+ return{total:u,details:details,henkeiTotal:henkeiTotal,plannedTotal:plannedTotal};
 }
 
 function clickExact(selector,text,root){
@@ -1064,7 +1071,7 @@ try{
   }
 
   var calcResult=calcUserTotal(reasonMap,isManagerRole(role),gapMap);
-  results.push({name:name,role:role,total:calcResult.total,details:calcResult.details,henkeiTotal:calcResult.henkeiTotal});
+  results.push({name:name,role:role,total:calcResult.total,details:calcResult.details,henkeiTotal:calcResult.henkeiTotal,plannedTotal:calcResult.plannedTotal});
  }
 
  hideLoading();
