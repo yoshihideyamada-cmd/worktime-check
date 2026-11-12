@@ -77,7 +77,7 @@ function show(title,u,details,plannedTotal){
  heading.style='font-weight:700;font-size:17px;margin-bottom:8px';
 
  total.textContent='残業合計：'+hours(u-plannedTotal)+'（現在）';
- planned.textContent='予定残業：'+hours(plannedTotal)+'（予定）';
+ planned.textContent='予定残業：'+hours(u)+'（予定）';
 
  remaining.textContent='45h超リミット＝44.75hまで残り：'+rem.toFixed(2)+'h';
  if(rem<10)remaining.style='color:#c00000;font-weight:700';
@@ -143,7 +143,7 @@ function show(title,u,details,plannedTotal){
  notice.style='white-space:pre-line;margin-top:12px';
 
  var changelog=document.createElement('div');
- changelog.textContent='※残業合計を「現在」と「予定」に分けて表示するようにしました。26/11/12';
+ changelog.textContent='※予定残業を「現在+予定」の合計で表示するようにしました。26/11/12';
  changelog.style='color:#0645ad;margin-top:4px';
 
  box.appendChild(close);
