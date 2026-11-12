@@ -51,7 +51,7 @@ function startForWorkMinutes(end,workMinutes,p){
  }
  return start;
 }
-function show(title,u,details){
+function show(title,u,details,plannedTotal){
  var rem=44.75-u/60;
  var old=document.getElementById('__zangyo_result');
  if(old)old.remove();
@@ -60,6 +60,7 @@ function show(title,u,details){
  var close=document.createElement('button');
  var heading=document.createElement('div');
  var total=document.createElement('div');
+ var planned=document.createElement('div');
  var remaining=document.createElement('div');
  var detailButton=document.createElement('button');
  var detailBox=document.createElement('div');
@@ -75,7 +76,8 @@ function show(title,u,details){
  heading.textContent='【'+title+' 残業チェック】';
  heading.style='font-weight:700;font-size:17px;margin-bottom:8px';
 
- total.textContent='残業合計：'+hours(u);
+ total.textContent='残業合計：'+hours(u-plannedTotal)+'（現在）';
+ planned.textContent='予定残業：'+hours(plannedTotal)+'（予定）';
 
  remaining.textContent='45h超リミット＝44.75hまで残り：'+rem.toFixed(2)+'h';
  if(rem<10)remaining.style='color:#c00000;font-weight:700';
@@ -141,12 +143,13 @@ function show(title,u,details){
  notice.style='white-space:pre-line;margin-top:12px';
 
  var changelog=document.createElement('div');
- changelog.textContent='※事前申請のみ(事後報告なし)は打刻で計算し、「申請有⇒残業無」「予定」を表示するようにしました。26/10/20';
+ changelog.textContent='※残業合計を「現在」と「予定」に分けて表示するようにしました。26/11/12';
  changelog.style='color:#0645ad;margin-top:4px';
 
  box.appendChild(close);
  box.appendChild(heading);
  box.appendChild(total);
+ box.appendChild(planned);
  box.appendChild(remaining);
  box.appendChild(detailButton);
  box.appendChild(warnLabel);
@@ -254,7 +257,7 @@ function buildGapMap(tb){
 function runCalc(reasonMap,gapMap){
  var mainTable=findMainTable()||document.getElementsByTagName('table')[2];
  var R=mainTable.rows;
- var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,dayWarnings,lateStart,earlyEnd,hasAttendance,isHenkei,henkeiTotal=0,gap,gapPairs,nightGap,isNightDuty,nightLabel;
+ var u=0,last=0,i,v,d,j,ea,os0,os,er,oe0,oe,st,en,p,m,w,sc,ec,wait,sub,lv,need,actualIn,actualOut,expected,dayWarnings,lateStart,earlyEnd,hasAttendance,isHenkei,henkeiTotal=0,plannedTotal=0,gap,gapPairs,nightGap,isNightDuty,nightLabel;
  var details=[];
 
  for(i=1;i<R.length;i++){
@@ -335,6 +338,7 @@ function runCalc(reasonMap,gapMap){
    }
 
    u+=m;
+   if(planned)plannedTotal+=m;
    if(m!==0||dayWarnings.length||reqCut){
     var label='残業：'+hours(m);
     if(isNightDuty)label+='('+nightLabel+hours(nDuty)+')';
@@ -346,7 +350,7 @@ function runCalc(reasonMap,gapMap){
   }
  }
 
- show('課長用',u,details);
+ show('課長用',u,details,plannedTotal);
 }
 
 async function run(){
