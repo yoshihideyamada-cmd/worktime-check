@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>避難場所・ルート図くん</title>
+<style>
+  :root { --bd:#c8ccd2; --accent:#1f5fbf; --warn:#b45309; --ok:#15803d; }
+  * { box-sizing: border-box; }
+  body { font-family: "Meiryo","Yu Gothic",sans-serif; margin:0; padding:16px; color:#1f2937; background:#f5f6f8; }
+  h1 { font-size:18px; margin:0 0 12px; }
+  .card { background:#fff; border:1px solid var(--bd); border-radius:8px; padding:14px; margin-bottom:12px; max-width:980px; }
+  label { font-size:12px; color:#4b5563; display:block; margin-bottom:3px; }
+  input[type=text], select { width:100%; padding:7px 8px; border:1px solid var(--bd); border-radius:6px; font-size:14px; }
+  .row { display:grid; grid-template-columns: 1fr 2fr; gap:10px; margin-bottom:10px; }
+  .haz { display:flex; flex-wrap:wrap; gap:4px 14px; font-size:13px; margin-bottom:10px; }
+  .haz label { display:inline-flex; align-items:center; gap:4px; color:#1f2937; font-size:13px; margin:0; }
+  button { padding:8px 14px; border:1px solid var(--accent); background:var(--accent); color:#fff; border-radius:6px; font-size:14px; cursor:pointer; }
+  button.sub { background:#fff; color:var(--accent); }
+  button:disabled { opacity:.5; cursor:default; }
+  .btns { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  #status { font-size:13px; color:#4b5563; margin-left:6px; }
+  .badge { display:inline-block; font-size:12px; padding:2px 8px; border-radius:10px; margin-right:6px; }
+  .b-ok { background:#dcfce7; color:var(--ok); }
+  .b-warn { background:#fef3c7; color:var(--warn); }
+  .b-info { background:#e0ecff; color:var(--accent); }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th, td { border:1px solid var(--bd); padding:5px 7px; text-align:left; vertical-align:top; }
+  th { background:#f0f2f5; white-space:nowrap; }
+  tr.best td { background:#eef5ff; }
+  canvas { max-width:100%; border:1px solid var(--bd); border-radius:6px; }
+  .note { font-size:12px; color:#6b7280; line-height:1.6; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<h1>避難場所・ルート図くん<span style="font-size:13px;font-weight:normal;color:#6b7280;margin-left:8px">愛知県内</span></h1>
+
+<div class="card">
+  <div class="row">
+    <div><label>現場名</label><input type="text" id="siteName" placeholder="例: ○○ビル / ○○病院"></div>
+    <div><label>住所</label><input type="text" id="siteAddr" placeholder="例: 愛知県名古屋市東区赤塚町28"></div>
+  </div>
+  <div class="row" style="grid-template-columns: 1fr 2fr;">
+    <div>
+      <label>現場の扱い(通常は「自動判定」のまま)</label>
+      <select id="override">
+        <option value="auto">自動判定</option>
+        <option value="onsite">当現場が避難所(ルートなし)</option>
+        <option value="route">近隣へ避難(ルートを表示)</option>
+        <option value="wait">現地待機(病院・施設の避難計画による)</option>
+      </select>
+    </div>
+    <div class="note" style="align-self:end">現場名か住所のどちらか一方だけでも検索できます(住所の方が位置の精度が高くなります)。避難先は、災害時に避難する指定避難所・指定緊急避難場所から自動で探します。</div>
+  </div>
+  <div class="btns">
+    <button id="goBtn">検索・ルート図を作成</button>
+    <span id="status"></span>
+  </div>
+</div>
+
+<div id="result" class="card hidden">
+  <div id="judge" style="margin-bottom:8px"></div>
+  <div id="geoInfo" class="note" style="margin-bottom:4px"></div>
+  <div id="nearInfo" class="note" style="margin-bottom:8px"></div>
+  <table id="tbl"></table>
+  <label>地図のメモ欄(ここを直すと地図に反映されます)</label>
+  <textarea id="memo" rows="3" style="width:100%;padding:7px 8px;border:1px solid var(--bd);border-radius:6px;font-size:14px;font-family:inherit"></textarea>
+  <div style="margin:12px 0 6px" id="mapBlock">
+    <canvas id="cv" width="1200" height="820"></canvas>
+  </div>
+  <div class="btns">
+    <button id="dlPdf">PDFで保存</button>
+    <button id="copyImg" class="sub">ルート図をコピー(画像)</button>
+    <button id="copyTxt" class="sub">避難先をコピー(Excel貼付用の1行)</button>
+    <button id="dlImg" class="sub">PNG保存</button>
+    <span id="copyMsg" class="note"></span>
+  </div>
+</div>
+
+<div class="card note">
+  データ: 指定避難所・指定緊急避難場所データ(国土地理院)/位置検索: 国土地理院・OpenStreetMap(現場名のみの場合)/地図: 地理院タイル/徒歩経路: OpenStreetMap contributors・Valhalla(FOSSGIS公開サーバー、1リクエスト/秒まで)。<br>
+  検索対象は愛知県内です(住所に県名が無ければ「愛知県」を補って検索します)。愛知県の公式一覧: <a href="https://www.pref.aichi.jp/uploaded/attachment/593307.pdf" target="_blank" rel="noopener">指定緊急避難場所一覧(PDF・2025年4月1日時点)</a><br>
+  避難場所は市町村が登録・公開同意したデータのみです。「現地」「病院」の自動判定は目安なので、必ず現場の避難計画で確認してください。
+</div>
+
+<script>
+// ============ CORE (純粋関数: テスト対象) ============
+const HAZARDS = [
+  {id:'01', name:'洪水'}, {id:'02', name:'崖崩れ・土石流・地滑り'}, {id:'03', name:'高潮'},
+  {id:'04', name:'地震'}, {id:'05', name:'津波'}, {id:'06', name:'大規模な火事'},
+  {id:'07', name:'内水氾濫'}, {id:'08', name:'火山現象'}
+];
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371008.8, rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*rad) * Math.cos(lat2*rad) * Math.sin(dLon/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+function decodePolyline(str, precision) {
+  const f = Math.pow(10, precision || 6);
+  let i = 0, lat = 0, lon = 0; const out = [];
+  while (i < str.length) {
+    let b, shift = 0, res = 0;
+    do { b = str.charCodeAt(i++) - 63; res |= (b & 31) << shift; shift += 5; } while (b >= 32);
+    lat += (res & 1) ? ~(res >> 1) : (res >> 1);
+    shift = 0; res = 0;
+    do { b = str.charCodeAt(i++) - 63; res |= (b & 31) << shift; shift += 5; } while (b >= 32);
+    lon += (res & 1) ? ~(res >> 1) : (res >> 1);
+    out.push([lat / f, lon / f]);   // [lat, lon]
+  }
+  return out;
+}
+function lonLatToPx(lon, lat, z) {
+  const s = 256 * Math.pow(2, z);
+  const x = (lon + 180) / 360 * s;
+  const sin = Math.sin(lat * Math.PI / 180);
+  const y = (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * s;
+  return [x, y];
+}
+function lonLatToTile(lon, lat, z) {
+  const [x, y] = lonLatToPx(lon, lat, z);
+  return [Math.floor(x / 256), Math.floor(y / 256)];
+}
+function pickZoom(points, W, H, pad) {   // points: [[lat,lon],...]
+  for (let z = 17; z >= 5; z--) {
+    let minX=1e18, maxX=-1e18, minY=1e18, maxY=-1e18;
+    for (const [lat, lon] of points) {
+      const [x, y] = lonLatToPx(lon, lat, z);
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+    }
+    if ((maxX - minX) <= W * (1 - pad) && (maxY - minY) <= H * (1 - pad)) return z;
+  }
+  return 5;
+}
+function normName(s) {
+  return String(s || '').replace(/[\s　()()「」『』・\-ー]/g, '').toLowerCase();
+}
+const HOSP_RE = /病院|医療センター|医院|クリニック|診療所|ホスピタル/;
+function isHospitalName(name) { return HOSP_RE.test(name || ''); }
+function nameMatch(a, b) {
+  const x = normName(a), y = normName(b);
+  if (x.length < 3 || y.length < 3) return false;
+  return x.includes(y) || y.includes(x);
+}
+// 現場が指定緊急避難場所と同一か(目安)。nearest = {name, dist}
+function judgeOnSite(siteName, nearest) {
+  if (!nearest) return false;
+  if (nearest.dist <= 60) return true;
+  if (nearest.dist <= 300 && nameMatch(siteName, nearest.name)) return true;
+  return false;
+}
+function dedupeShelters(list) {   // 同名で50m以内は同一施設として統合(種別・災害をまとめる)
+  const out = [];
+  for (const s of list) {
+    const k = normName(s.name);
+    const hit = out.find(o => normName(o.name) === k && haversine(o.lat, o.lon, s.lat, s.lon) <= 50);
+    if (hit) s.hz.forEach(h => hit.hz.add(h));
+    else out.push({ ...s, hz: new Set(s.hz) });
+  }
+  return out;
+}
+// 1ページ(A4横)に画像を収めたPDFを生成。jpeg: Uint8Array
+function makePdf(jpeg, imgW, imgH) {
+  const enc = new TextEncoder();
+  const pw = 842, ph = 595, m = 24;
+  const sc = Math.min((pw - 2 * m) / imgW, (ph - 2 * m) / imgH);
+  const w = +(imgW * sc).toFixed(2), h = +(imgH * sc).toFixed(2);
+  const x = +((pw - w) / 2).toFixed(2), y = +((ph - h) / 2).toFixed(2);
+  const content = `q ${w} 0 0 ${h} ${x} ${y} cm /Im0 Do Q`;
+  const parts = [], offs = []; let len = 0;
+  const push = b => { const u = typeof b === 'string' ? enc.encode(b) : b; parts.push(u); len += u.length; };
+  const obj = (n, body) => { offs[n] = len; push(`${n} 0 obj\n${body}\nendobj\n`); };
+  push('%PDF-1.4\n');
+  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+  obj(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pw} ${ph}] /Resources << /XObject << /Im0 5 0 R >> >> /Contents 4 0 R >>`);
+  obj(4, `<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+  offs[5] = len;
+  push(`5 0 obj\n<< /Type /XObject /Subtype /Image /Width ${imgW} /Height ${imgH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`);
+  push(jpeg); push('\nendstream\nendobj\n');
+  const xref = len;
+  let t = 'xref\n0 6\n0000000000 65535 f \n';
+  for (let i = 1; i <= 5; i++) t += String(offs[i]).padStart(10, '0') + ' 00000 n \n';
+  push(t + `trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  const out = new Uint8Array(len); let p = 0;
+  for (const b of parts) { out.set(b, p); p += b.length; }
+  return out;
+}
+function typeLabel(hz) {   // hz: Set(ラベル)
+  const arr = [...hz], sih = arr.includes('指定避難所'), emg = arr.some(x => x !== '指定避難所');
+  return sih && emg ? '指定避難所・指定緊急避難場所' : sih ? '指定避難所' : '指定緊急避難場所';
+}
+// ============ /CORE ============
+
+// ---------- UI / ネットワーク ----------
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let state = null;   // 直近の結果
+
+function setStatus(t) { $('status').textContent = t || ''; }
+
+// 愛知県の範囲(少し余裕を持たせた外枠)
+const AICHI = { s: 34.55, n: 35.45, w: 136.65, e: 137.86 };
+function inAichi(lat, lon) { return lat >= AICHI.s && lat <= AICHI.n && lon >= AICHI.w && lon <= AICHI.e; }
+// 住所に都道府県名が無ければ「愛知県」を補う
+function withPref(q) { return /^(愛知県|.{2,3}[都道府県])/.test(q) ? q : '愛知県' + q; }
+
+async function gsiSearch(q) {
+  const r = await fetch('https://msearch.gsi.go.jp/address-search/AddressSearch?q=' + encodeURIComponent(q));
+  if (!r.ok) throw new Error('住所検索に失敗しました(HTTP ' + r.status + ')');
+  const j = (await r.json()).filter(f => { const [lo, la] = f.geometry.coordinates; return inAichi(la, lo); });
+  if (!j.length) return null;
+  const [lon, lat] = j[0].geometry.coordinates;
+  return { lat, lon, title: j[0].properties.title, count: j.length, source: '国土地理院' };
+}
+async function osmSearch(q) {
+  const vb = `${AICHI.w},${AICHI.n},${AICHI.e},${AICHI.s}`;
+  const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=jp&limit=1&accept-language=ja&bounded=1&viewbox=' + vb + '&q=' + encodeURIComponent(q));
+  if (!r.ok) throw new Error('施設名検索に失敗しました(HTTP ' + r.status + ')');
+  const j = (await r.json()).filter(x => inAichi(+x.lat, +x.lon));
+  if (!j.length) return null;
+  return { lat: +j[0].lat, lon: +j[0].lon, title: j[0].display_name, count: 1, source: 'OpenStreetMap' };
+}
+// 住所があれば住所で、なければ現場名で位置を探す(どちらか一方でOK)。愛知県内に限定
+async function geocodeAny(name, addr) {
+  let g = null, errs = [];
+  const tryIt = async f => { try { return await f(); } catch (e) { errs.push(e.message); return null; } };
+  if (addr) {
+    const a = withPref(addr);
+    g = await tryIt(() => gsiSearch(a)) || await tryIt(() => osmSearch(a));
+    if (g) return { ...g, byName: false };
+  }
+  if (name) {
+    g = await tryIt(() => osmSearch(name)) || await tryIt(() => gsiSearch(name));
+    if (g) return { ...g, byName: true };
+  }
+  throw new Error(errs.length ? errs[0] : '愛知県内で位置が見つかりませんでした。住所を番地まで入れるか、現場名を正式名称で入れてください。');
+}
+
+// 避難場所の取得(地理院 指定緊急避難場所データ タイル)
+async function fetchShelters(lat, lon, radius) {
+  // 災害時の避難先: 指定避難所 + 指定緊急避難場所(全災害種別)をまとめて取得
+  const layers = [{ key: 'sih', label: '指定避難所' }]
+    .concat(HAZARDS.map(h => ({ key: 'skhb' + h.id, label: h.name })));
+  // データはズーム10のタイル(約30km四方)のみ提供。検索範囲(半径)にかかるタイルだけ取得する
+  const z = 10, dLat = radius / 111000, dLon = radius / (111000 * Math.cos(lat * Math.PI / 180));
+  const [xa, ya] = lonLatToTile(lon - dLon, lat + dLat, z), [xb, yb] = lonLatToTile(lon + dLon, lat - dLat, z);
+  let anyOk = false;
+  {
+    const jobs = [];
+    for (let tx = xa; tx <= xb; tx++) for (let ty = ya; ty <= yb; ty++)
+      for (const L of layers)
+        jobs.push({ L, url: `https://cyberjapandata.gsi.go.jp/xyz/${L.key}/${z}/${tx}/${ty}.geojson` });
+    const got = await Promise.all(jobs.map(async job => {
+      try {
+        const r = await fetch(job.url);
+        if (r.status === 404) { anyOk = true; return []; }
+        if (!r.ok) return [];
+        anyOk = true;
+        const j = await r.json();
+        return (j.features || []).map(f => ({ f, L: job.L }));
+      } catch (e) { return []; }
+    }));
+    const list = [];
+    for (const arr of got) for (const { f, L } of arr) {
+      if (!f.geometry || f.geometry.type !== 'Point') continue;
+      const p = f.properties || {};
+      const [lo, la] = f.geometry.coordinates;
+      list.push({ name: p.name || p['施設・場所名'] || '(名称なし)', address: p.address || p['住所'] || '',
+                  lat: la, lon: lo, hz: new Set([L.label]) });
+    }
+    if (list.length) return dedupeShelters(list.filter(s => haversine(lat, lon, s.lat, s.lon) <= radius));
+  }
+  if (!anyOk) throw new Error('避難場所データを取得できませんでした(通信できない、またはデータ提供URLが変わった可能性)。');
+  return [];
+}
+
+async function walkRoute(a, b) {
+  const q = { locations: [{ lat: a.lat, lon: a.lon }, { lat: b.lat, lon: b.lon }],
+              costing: 'pedestrian', directions_options: { units: 'kilometers', language: 'ja-JP' } };
+  const r = await fetch('https://valhalla1.openstreetmap.de/route?json=' + encodeURIComponent(JSON.stringify(q)));
+  if (!r.ok) throw new Error('経路検索に失敗(HTTP ' + r.status + ')');
+  const j = await r.json();
+  const leg = j.trip.legs[0];
+  return { shape: decodePolyline(leg.shape, 6), meters: j.trip.summary.length * 1000, sec: j.trip.summary.time };
+}
+
+// ---------- 地図画像 ----------
+function loadImg(src) {
+  return new Promise(res => {
+    const im = new Image(); im.crossOrigin = 'anonymous';
+    im.onload = () => res(im); im.onerror = () => res(null); im.src = src;
+  });
+}
+async function drawMap(site, others, best) {
+  const cv = $('cv'), ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
+  const pts = [[site.lat, site.lon]];
+  if (best) { pts.push([best.s.lat, best.s.lon]); if (best.route) pts.push(...best.route.shape); }
+  const z = pts.length > 1 ? pickZoom(pts, W, H, 0.3) : 16;
+  const zz = Math.min(z, 16);   // 近距離でも周辺の道路がわかる程度に引いて表示
+  let minX=1e18, maxX=-1e18, minY=1e18, maxY=-1e18;
+  for (const [lat, lon] of pts) {
+    const [x, y] = lonLatToPx(lon, lat, zz);
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+  }
+  const ox = (minX + maxX) / 2 - W / 2, oy = (minY + maxY) / 2 - H / 2;
+  ctx.fillStyle = '#e5e7eb'; ctx.fillRect(0, 0, W, H);
+  const x0 = Math.floor(ox / 256), x1 = Math.floor((ox + W) / 256);
+  const y0 = Math.floor(oy / 256), y1 = Math.floor((oy + H) / 256);
+  const jobs = [];
+  for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++)
+    jobs.push(loadImg(`https://cyberjapandata.gsi.go.jp/xyz/std/${zz}/${x}/${y}.png`).then(im => ({ im, x, y })));
+  for (const { im, x, y } of await Promise.all(jobs))
+    if (im) ctx.drawImage(im, x * 256 - ox, y * 256 - oy);
+  const P = (lat, lon) => { const [x, y] = lonLatToPx(lon, lat, zz); return [x - ox, y - oy]; };
+  if (best && best.route) {
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    for (const [w, c] of [[9, '#ffffff'], [5, '#1f5fbf']]) {
+      ctx.beginPath(); ctx.lineWidth = w; ctx.strokeStyle = c;
+      best.route.shape.forEach(([la, lo], i) => { const [x, y] = P(la, lo); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+      ctx.stroke();
+    }
+  } else if (best) {
+    const [ax, ay] = P(site.lat, site.lon), [bx, by] = P(best.s.lat, best.s.lon);
+    ctx.setLineDash([10, 8]); ctx.lineWidth = 4; ctx.strokeStyle = '#1f5fbf';
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke(); ctx.setLineDash([]);
+  }
+  const label = (txt, x, y, color) => {
+    ctx.font = 'bold 16px Meiryo, "Yu Gothic", sans-serif';
+    ctx.lineWidth = 4; ctx.strokeStyle = '#fff'; ctx.strokeText(txt, x + 14, y - 10);
+    ctx.fillStyle = color; ctx.fillText(txt, x + 14, y - 10);
+  };
+  const marker = (x, y, ch, color) => {
+    ctx.beginPath(); ctx.arc(x, y, 12, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(ch, x, y + 1); ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+  };
+  for (const o of others) { const [x, y] = P(o.s.lat, o.s.lon); marker(x, y, '', '#9ca3af'); }
+  if (best) { const [x, y] = P(best.s.lat, best.s.lon); marker(x, y, '避', '#1f5fbf'); label(best.s.name, x, y, '#1f3a8a'); }
+  const [sx, sy] = P(site.lat, site.lon); marker(sx, sy, '現', '#dc2626'); label(site.name || '現場', sx, sy, '#991b1b');
+  ctx.font = '11px sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.85)';
+  const att = '地図: 国土地理院タイル / 経路: OpenStreetMap contributors, Valhalla';
+  const tw = ctx.measureText(att).width; ctx.fillRect(W - tw - 10, H - 18, tw + 8, 16);
+  ctx.fillStyle = '#374151'; ctx.fillText(att, W - tw - 6, H - 6);
+  baseCv = document.createElement('canvas'); baseCv.width = W; baseCv.height = H;
+  baseCv.getContext('2d').drawImage(cv, 0, 0);
+}
+let baseCv = null;
+// 地図の上にメモ欄(白地・枠線つき)を重ねて描く。textareaの内容がそのまま入る
+function drawMemo() {
+  const cv = $('cv'), ctx = cv.getContext('2d');
+  if (!baseCv) return;
+  ctx.drawImage(baseCv, 0, 0);
+  const lines = $('memo').value.split('\n').filter(l => l.trim() !== '');
+  if (!lines.length) return;
+  const fs = 24, lh = 36, padX = 16, padY = 12;
+  ctx.font = `bold ${fs}px Meiryo, "Yu Gothic", sans-serif`;
+  const w = Math.max(...lines.map(l => ctx.measureText(l).width)) + padX * 2;
+  const h = lines.length * lh + padY * 2 - 6;
+  const x = 16, y = 16;
+  ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.fillRect(x, y, w, h);
+  ctx.lineWidth = 3; ctx.strokeStyle = '#1f2937'; ctx.strokeRect(x, y, w, h);
+  ctx.fillStyle = '#111827'; ctx.textBaseline = 'top';
+  lines.forEach((l, i) => ctx.fillText(l, x + padX, y + padY + i * lh));
+  ctx.textBaseline = 'alphabetic';
+}
+
+// ---------- メイン処理 ----------
+function fmtDist(m) { return m >= 1000 ? (m / 1000).toFixed(2) + ' km' : Math.round(m) + ' m'; }
+
+async function run() {
+  const name = $('siteName').value.trim(), addr = $('siteAddr').value.trim();
+  if (!name && !addr) { setStatus('現場名か住所のどちらかを入力してください'); return; }
+  const topN = 3, ov = $('override').value;
+  $('goBtn').disabled = true; $('result').classList.add('hidden'); $('copyMsg').textContent = '';
+  try {
+    setStatus('現場の位置を検索中…');
+    const g = await geocodeAny(name, addr);
+    const site = { name, address: addr || g.title, lat: g.lat, lon: g.lon };
+    setStatus('避難場所データを取得中…');
+    let shelters = [];
+    for (const radius of [2000, 4000]) {      // 約2km以内で見つからなければ約4kmまで広げる
+      shelters = await fetchShelters(g.lat, g.lon, radius);
+      shelters.forEach(s => s.dist = haversine(g.lat, g.lon, s.lat, s.lon));
+      shelters = shelters.filter(s => s.dist <= radius).sort((a, b) => a.dist - b.dist);
+      if (shelters.length) break;
+    }
+    const nearest = shelters[0] || null;
+    // 最寄りだけでなく、近くの全候補から「現場と同一地点/同名」のものを探す
+    const onsiteHit = shelters.find(s => judgeOnSite(name, s)) || null;
+
+    // 判定
+    const hosp = isHospitalName(name);
+    let mode = ov;
+    let basis = '手動指定';
+    if (ov === 'auto') {
+      if (onsiteHit) { mode = 'onsite'; basis = '自動判定: 現場が避難所と同一地点(または名称一致)'; }
+      else { mode = 'route'; basis = '自動判定: 近隣の避難場所へ避難' + (hosp ? '(現場名から病院と推定。現地待機・垂直避難の方針がないか要確認)' : ''); }
+    }
+
+    // 経路(近隣避難のとき)
+    const cands = shelters.slice(0, topN).map(s => ({ s, route: null }));
+    if (mode === 'route' || mode === 'wait') {
+      if (mode === 'route') {
+        for (let i = 0; i < cands.length; i++) {
+          setStatus(`徒歩ルートを検索中… (${i + 1}/${cands.length})`);
+          try { cands[i].route = await walkRoute(site, cands[i].s); } catch (e) { cands[i].err = e.message; }
+          if (i < cands.length - 1) await sleep(1100);
+        }
+      }
+    }
+    const withRoute = cands.filter(c => c.route);
+    let best = null;
+    if (mode === 'route') {
+      best = withRoute.length ? withRoute.sort((a, b) => a.route.meters - b.route.meters)[0] : (cands[0] || null);
+      // 並びを徒歩距離順に
+      cands.sort((a, b) => (a.route ? a.route.meters : 1e9 + a.s.dist) - (b.route ? b.route.meters : 1e9 + b.s.dist));
+    } else if (mode === 'onsite' && (onsiteHit || nearest)) {
+      best = { s: onsiteHit || nearest, route: null };
+    }
+
+    state = { site, mode, basis, hosp, g, cands, best, nearest, near300: shelters.filter(s => s.dist <= 300) };
+    render();
+    $('memo').value = memoText();
+    setStatus('地図を描画中…');
+    await drawMap(site, cands.filter(c => c !== best), mode === 'route' ? best : null);
+    drawMemo();
+    $('result').classList.remove('hidden');
+    setStatus('完了');
+  } catch (e) {
+    setStatus('エラー: ' + e.message);
+  } finally { $('goBtn').disabled = false; }
+}
+
+function resultText() {
+  const { site, mode, best } = state;
+  if (mode === 'onsite') return `当現場が${best ? typeLabel(best.s.hz) : '避難所'}です${best ? '(' + best.s.name + ')' : ''}`;
+  if (mode === 'wait') return '現地待機(病院・施設の避難計画による)';
+  if (!best) return '近隣に該当する避難所なし(要確認)';
+  const r = best.route;
+  const dist = r ? fmtDist(r.meters) : '直線 ' + fmtDist(best.s.dist);
+  const min = r ? Math.max(1, Math.round(r.sec / 60)) : Math.max(1, Math.round(best.s.dist / 80));
+  return `${best.s.name}(${best.s.address}) 徒歩約${min}分 ${dist}`;
+}
+
+// 地図メモ欄の自動文言: 現場名 / 避難所の種別・名称・徒歩 / 避難所の場所(住所)
+function memoText() {
+  const { site, mode, best } = state;
+  const l1 = `現場名　${site.name || site.address || '(未入力)'}`;
+  if (mode === 'onsite') return `${l1}\n当現場が${best ? typeLabel(best.s.hz) : '避難所'}です(避難ルートなし)`;
+  if (mode === 'wait') return `${l1}\n避難先　現地待機(避難計画による)`;
+  if (!best) return `${l1}\n避難所　該当なし(要確認)`;
+  const r = best.route;
+  const min = r ? Math.max(1, Math.round(r.sec / 60)) : Math.max(1, Math.round(best.s.dist / 80));
+  const walk = r ? '徒歩約' + min + '分' : '徒歩約' + min + '分(直線距離からの目安)';
+  return `${l1}\n${typeLabel(best.s.hz)}　${best.s.name}　${walk}\n場所　${best.s.address || '(住所データなし)'}`;
+}
+
+function render() {
+  const { site, mode, basis, hosp, g, cands, best } = state;
+  const badge = mode === 'onsite' ? '<span class="badge b-ok">現地避難</span>'
+              : mode === 'wait' ? '<span class="badge b-warn">現地待機(要確認)</span>'
+              : '<span class="badge b-info">近隣へ避難</span>';
+  $('judge').innerHTML = badge + `<b>${resultText().replace(/</g, '&lt;')}</b><div class="note">${basis}</div>`;
+  $('geoInfo').textContent = `${g.byName ? '現場名' : '住所'}から検索した位置(${g.source}): ${g.title}(${g.lat.toFixed(5)}, ${g.lon.toFixed(5)})` +
+    (g.byName ? ' ※現場名のみで検索したため、位置が正しいか地図で確認してください。' : '') +
+    (g.count > 1 ? ` ※他に${g.count - 1}件の候補あり。位置が違う場合は番地まで入れて再検索してください。` : '');
+  const n3 = state.near300;
+  $('nearInfo').textContent = n3.length
+    ? '現場から300m以内の登録施設: ' + n3.map(s => `${s.name}(${Math.round(s.dist)}m)`).join('、')
+    : '現場から300m以内に、指定避難所・指定緊急避難場所として登録された施設はありません(データ上、現場自体は避難所として登録されていません)。';
+  let rows = '';
+  if (cands.length) {
+    rows = cands.map((c, i) => `<tr class="${c === best && mode === 'route' ? 'best' : ''}">
+      <td>${c === best && mode === 'route' ? '★' : ''}${i + 1}</td>
+      <td>${esc(c.s.name)}</td><td>${esc(c.s.address)}</td>
+      <td>${fmtDist(c.s.dist)}</td>
+      <td>${c.route ? fmtDist(c.route.meters) + '(約' + Math.max(1, Math.round(c.route.sec / 60)) + '分)' : (c.err ? '取得失敗' : '—')}</td>
+      <td>${[...c.s.hz].map(esc).join('・')}</td></tr>`).join('');
+  } else rows = '<tr><td colspan="6">約4km以内に該当する避難所データが見つかりませんでした。</td></tr>';
+  $('tbl').innerHTML = '<tr><th>順位</th><th>避難場所</th><th>住所</th><th>直線距離</th><th>徒歩(実距離)</th><th>種別・対応災害</th></tr>' + rows;
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+// ---------- コピー・保存 ----------
+$('goBtn').onclick = run;
+$('copyImg').onclick = async () => {
+  try {
+    const blob = await new Promise(r => $('cv').toBlob(r, 'image/png'));
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    $('copyMsg').textContent = '画像をコピーしました。Excelで貼り付けてください。';
+  } catch (e) { $('copyMsg').textContent = 'コピーに失敗しました(' + e.message + ')。「PNG保存」を使ってください。'; }
+};
+$('copyTxt').onclick = async () => {
+  if (!state) return;
+  const { site, mode, best } = state;
+  const cells = [site.name, site.address, resultText()];
+  try { await navigator.clipboard.writeText(cells.join('\t')); $('copyMsg').textContent = '文字をコピーしました(現場名/住所/避難先をタブ区切り)。'; }
+  catch (e) { $('copyMsg').textContent = 'コピーに失敗: ' + e.message; }
+};
+$('memo').addEventListener('input', drawMemo);
+$('dlPdf').onclick = async () => {
+  try {
+    const cv = $('cv');
+    const dataUrl = cv.toDataURL('image/jpeg', 0.92);
+    const bin = atob(dataUrl.split(',')[1]);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const pdf = makePdf(bytes, cv.width, cv.height);
+    const a = document.createElement('a');
+    a.download = ((state && state.site.name) || '避難ルート') + '_避難ルート.pdf';
+    a.href = URL.createObjectURL(new Blob([pdf], { type: 'application/pdf' }));
+    a.click();
+    $('copyMsg').textContent = 'PDFを保存しました。';
+  } catch (e) { $('copyMsg').textContent = 'PDF作成に失敗: ' + e.message; }
+};
+$('dlImg').onclick = () => {
+  const a = document.createElement('a');
+  a.download = ((state && state.site.name) || 'route') + '_ルート図.png';
+  a.href = $('cv').toDataURL('image/png'); a.click();
+};
+['siteName', 'siteAddr'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') run(); }));
+</script>
+</body>
+</html>
