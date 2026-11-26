@@ -231,12 +231,23 @@ function setStatus(t) { $('status').textContent = t || ''; }
 const AICHI = { s: 34.55, n: 35.45, w: 136.65, e: 137.86 };
 function inAichi(lat, lon) { return lat >= AICHI.s && lat <= AICHI.n && lon >= AICHI.w && lon <= AICHI.e; }
 // 住所に都道府県名が無ければ「愛知県」を補う
-function withPref(q) { return /^(愛知県|.{2,3}[都道府県])/.test(q) ? q : '愛知県' + q; }
+// 名古屋市の区名から始まる住所(例: 中川区尾頭橋2-6-14)は「名古屋市」も補う
+const NAGOYA_WARD_RE = /^(千種|東|北|西|中村|中|昭和|瑞穂|熱田|中川|港|南|守山|緑|名東|天白)区/;
+function withPref(q) {
+  if (/^(愛知県|.{2,3}[都道府県])/.test(q)) return q;
+  return '愛知県' + (NAGOYA_WARD_RE.test(q) ? '名古屋市' : '') + q;
+}
+// 検索結果が県や市町村だけ(番地などが合っていない)なら、その結果は使わない
+// 例: 「愛知県中川区…」で検索すると「愛知県」(県庁の位置)だけが返ってくることがある
+function isCoarseTitle(title) {
+  const t = String(title || '').replace(/^愛知県/, '').replace(/^.{1,4}郡/, '');
+  return t === '' || /^[^市町村]{1,6}[市町村]$/.test(t) || /^名古屋市[^区]{1,3}区$/.test(t);
+}
 
 async function gsiSearch(q) {
   const r = await fetch('https://msearch.gsi.go.jp/address-search/AddressSearch?q=' + encodeURIComponent(q));
   if (!r.ok) throw new Error('住所検索に失敗しました(HTTP ' + r.status + ')');
-  const j = (await r.json()).filter(f => { const [lo, la] = f.geometry.coordinates; return inAichi(la, lo); });
+  const j = (await r.json()).filter(f => { const [lo, la] = f.geometry.coordinates; return inAichi(la, lo) && !isCoarseTitle(f.properties.title); });
   if (!j.length) return null;
   const [lon, lat] = j[0].geometry.coordinates;
   return { lat, lon, title: j[0].properties.title, count: j.length, source: '国土地理院' };
@@ -255,7 +266,7 @@ async function geocodeAny(name, addr) {
   const tryIt = async f => { try { return await f(); } catch (e) { errs.push(e.message); return null; } };
   if (addr) {
     const a = withPref(addr);
-    g = await tryIt(() => gsiSearch(a)) || await tryIt(() => osmSearch(a));
+    g = await tryIt(() => gsiSearch(a)) || (a !== addr && await tryIt(() => gsiSearch(addr))) || await tryIt(() => osmSearch(a));
     if (g) return { ...g, byName: false };
   }
   if (name) {
