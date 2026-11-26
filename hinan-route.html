@@ -85,6 +85,7 @@
         <option value="photo">航空写真</option>
       </select></label>
     <button id="printMap">地図を印刷</button>
+    <button id="openGmap" class="sub">Googleマップで開く(徒歩ルート)</button>
     <button id="dlPdf">PDFで保存</button>
     <button id="copyImg" class="sub">ルート図をコピー(画像)</button>
     <button id="copyTxt" class="sub">避難先をコピー(Excel貼付用の1行)</button>
@@ -592,6 +593,16 @@ $('printMap').onclick = async () => {
     preparePrint(url); $('copyMsg').textContent = '';
     printing = true; window.print();
   } finally { printing = false; $('printMap').disabled = false; }
+};
+// Googleマップ(別タブ)で現場→避難場所の徒歩ルートを開く。現地避難のときは避難場所の位置を開く
+$('openGmap').onclick = () => {
+  if (!state) return;
+  const { site, best, mode } = state;
+  const ll = (o) => o.lat.toFixed(6) + ',' + o.lon.toFixed(6);
+  const url = best && mode !== 'onsite' && mode !== 'wait'
+    ? 'https://www.google.com/maps/dir/?api=1&travelmode=walking&origin=' + ll(site) + '&destination=' + ll(best.s)
+    : 'https://www.google.com/maps/search/?api=1&query=' + ll(best ? best.s : site);
+  window.open(url, '_blank', 'noopener');
 };
 $('dlImg').onclick = () => {
   const a = document.createElement('a');
