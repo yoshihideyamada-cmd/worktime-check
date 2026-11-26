@@ -41,18 +41,16 @@
     <div><label>現場名</label><input type="text" id="siteName" placeholder="例: ○○ビル / ○○病院"></div>
     <div><label>住所</label><input type="text" id="siteAddr" placeholder="例: 愛知県名古屋市東区赤塚町28"></div>
   </div>
-  <div class="row" style="grid-template-columns: 1fr 2fr;">
-    <div>
-      <label>現場の扱い(通常は「自動判定」のまま)</label>
-      <select id="override">
-        <option value="auto">自動判定</option>
-        <option value="onsite">当現場が避難所(ルートなし)</option>
-        <option value="route">近隣へ避難(ルートを表示)</option>
-        <option value="wait">現地待機(病院・施設の避難計画による)</option>
-      </select>
-    </div>
-    <div class="note" style="align-self:end">現場名か住所のどちらか一方だけでも検索できます(住所の方が位置の精度が高くなります)。避難先は、災害時に避難する指定避難所・指定緊急避難場所から自動で探します。</div>
-  </div>
+  <div class="note" style="margin-bottom:10px">現場名か住所のどちらか一方だけで検索できます(住所の方が位置の精度が高くなります)。最寄りの避難場所(国の指定避難所・指定緊急避難場所と、市町村が独自に指定した津波一時避難場所など)を自動で選びます。</div>
+  <details style="margin-bottom:10px;font-size:12px;color:#6b7280">
+    <summary style="cursor:pointer">判定を手動で変える(通常は不要)</summary>
+    <select id="override" style="margin-top:6px;max-width:340px">
+      <option value="auto">自動判定</option>
+      <option value="onsite">当現場が避難所(ルートなし)</option>
+      <option value="route">近隣へ避難(ルートを表示)</option>
+      <option value="wait">現地待機(病院・施設の避難計画による)</option>
+    </select>
+  </details>
   <div class="btns">
     <button id="goBtn">検索・ルート図を作成</button>
     <span id="status"></span>
@@ -75,31 +73,6 @@
     <button id="copyTxt" class="sub">避難先をコピー(Excel貼付用の1行)</button>
     <button id="dlImg" class="sub">PNG保存</button>
     <span id="copyMsg" class="note"></span>
-  </div>
-</div>
-
-<div class="card" id="extraCard">
-  <b style="font-size:14px">市町村指定の避難場所を追加(国・県のデータに無いもの)</b>
-  <div class="note" style="margin:4px 0 10px">津波一時避難場所・津波避難ビルなど、市町村が独自に指定していて上の検索に出てこない場所を登録すると、国のデータと合わせて最寄りを探します。<br>
-  ここで追加した分は<b>このブラウザにだけ</b>保存されます。全員で使うには「書き出し」した内容を共有データ(hinan-extra.js)に入れてください。</div>
-  <div class="row" style="grid-template-columns:2fr 1fr 1fr">
-    <div><label>名称</label><input type="text" id="exName" placeholder="例: 南知多病院職員駐車場(山の上)"></div>
-    <div><label>種別</label><input type="text" id="exType" list="exTypes" value="津波一時避難場所">
-      <datalist id="exTypes"><option value="津波一時避難場所"><option value="津波避難ビル"><option value="一時避難場所"><option value="市町村指定の避難場所"></datalist></div>
-    <div><label>市町村</label><input type="text" id="exTown" placeholder="例: 南知多町"></div>
-  </div>
-  <div class="row" style="grid-template-columns:2fr 1fr">
-    <div><label>住所(地図クリックで登録する場合は空でも可)</label><input type="text" id="exAddr" placeholder="例: 南知多町大字豊丘字孫廻間"></div>
-    <div><label>出典(どこで指定されているか)</label><input type="text" id="exSrc" placeholder="例: 南知多町 津波避難計画"></div>
-  </div>
-  <div class="btns">
-    <button id="exByAddr" class="sub">住所から位置を探して追加</button>
-    <button id="exByMap" class="sub">上の地図をクリックして位置を指定</button>
-    <span id="exMsg" class="note"></span>
-  </div>
-  <table id="exTbl" style="margin-top:10px"></table>
-  <div class="btns" style="margin-top:8px">
-    <button id="exExport" class="sub">書き出し(共有データ用にコピー)</button>
   </div>
 </div>
 
@@ -223,11 +196,6 @@ function toExtraShelter(e, g) {
            town: e.town || '', src: e.source || '', note: e.note || '', dist: haversine(g.lat, g.lon, lat, lon) };
 }
 function typeOf(s) { return s.extra ? s.kind : typeLabel(s.hz); }
-// 地図のピクセル座標 → 経度・緯度
-function pxToLonLat(x, y, z) {
-  const s = 256 * Math.pow(2, z), n = Math.PI - 2 * Math.PI * y / s;
-  return [x / s * 360 - 180, 180 / Math.PI * Math.atan(Math.sinh(n))];
-}
 function typeLabel(hz) {   // hz: Set(ラベル)
   const arr = [...hz], sih = arr.includes('指定避難所'), emg = arr.some(x => x !== '指定避難所');
   return sih && emg ? '指定避難所・指定緊急避難場所' : sih ? '指定避難所' : '指定緊急避難場所';
@@ -346,7 +314,6 @@ async function drawMap(site, others, best) {
     minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y);
   }
   const ox = (minX + maxX) / 2 - W / 2, oy = (minY + maxY) / 2 - H / 2;
-  mapView = { ox, oy, zz };
   ctx.fillStyle = '#e5e7eb'; ctx.fillRect(0, 0, W, H);
   const x0 = Math.floor(ox / 256), x1 = Math.floor((ox + W) / 256);
   const y0 = Math.floor(oy / 256), y1 = Math.floor((oy + H) / 256);
@@ -389,7 +356,7 @@ async function drawMap(site, others, best) {
   baseCv = document.createElement('canvas'); baseCv.width = W; baseCv.height = H;
   baseCv.getContext('2d').drawImage(cv, 0, 0);
 }
-let baseCv = null, mapView = null;
+let baseCv = null;
 // 地図の上にメモ欄(白地・枠線つき)を重ねて描く。textareaの内容がそのまま入る
 function drawMemo() {
   const cv = $('cv'), ctx = cv.getContext('2d');
@@ -568,75 +535,8 @@ $('dlImg').onclick = () => {
   a.download = ((state && state.site.name) || 'route') + '_ルート図.png';
   a.href = $('cv').toDataURL('image/png'); a.click();
 };
-// ---------- 市町村指定の避難場所(共有データ + このブラウザで追加した分) ----------
-const EX_KEY = 'hinanExtraLocal';
-function localExtras() { try { return JSON.parse(localStorage.getItem(EX_KEY) || '[]'); } catch (e) { return []; } }
-function saveLocalExtras(a) { try { localStorage.setItem(EX_KEY, JSON.stringify(a)); return true; } catch (e) { return false; } }
-function loadExtras() { return [...(window.HINAN_EXTRA || []), ...localExtras()]; }
-function exMsg(t) { $('exMsg').textContent = t || ''; }
-function renderExtras() {
-  const shared = window.HINAN_EXTRA || [], local = localExtras();
-  const row = (e, tag, i) => `<tr><td>${tag}</td><td>${esc(e.name)}</td><td>${esc(e.type || '')}</td><td>${esc(e.town || '')}</td>
-    <td>${esc(e.address || '')}<div class="note">${(+e.lat).toFixed(5)}, ${(+e.lon).toFixed(5)}${e.note ? ' / ' + esc(e.note) : ''}</div></td>
-    <td>${esc(e.source || '')}</td><td>${i >= 0 ? `<button class="sub" data-del="${i}" style="padding:3px 8px;font-size:12px">削除</button>` : ''}</td></tr>`;
-  const rows = shared.map(e => row(e, '共有', -1)).concat(local.map((e, i) => row(e, 'このブラウザ', i)));
-  $('exTbl').innerHTML = '<tr><th>保存先</th><th>名称</th><th>種別</th><th>市町村</th><th>住所・位置</th><th>出典</th><th></th></tr>' +
-    (rows.length ? rows.join('') : '<tr><td colspan="7">登録なし</td></tr>');
-}
-$('exTbl').addEventListener('click', ev => {
-  const i = ev.target.getAttribute && ev.target.getAttribute('data-del');
-  if (i === null || i === undefined) return;
-  const a = localExtras(); a.splice(+i, 1); saveLocalExtras(a); renderExtras(); exMsg('削除しました。');
-});
-function exForm() {
-  return { name: $('exName').value.trim(), type: $('exType').value.trim() || '市町村指定の避難場所',
-           town: $('exTown').value.trim(), address: $('exAddr').value.trim(), source: $('exSrc').value.trim() };
-}
-function addExtra(e) {
-  const a = localExtras(); a.push(e);
-  if (!saveLocalExtras(a)) { exMsg('このブラウザでは保存できませんでした。「書き出し」で控えてください。'); }
-  else exMsg(`「${e.name}」を追加しました。` + (state ? '検索し直して反映します…' : ''));
-  renderExtras();
-  ['exName', 'exAddr'].forEach(id => $(id).value = '');
-  if (state) run();
-}
-let pickMode = false;
-$('exByAddr').onclick = async () => {
-  const f = exForm();
-  if (!f.name) return exMsg('名称を入れてください。');
-  if (!f.address) return exMsg('住所を入れてください(住所が無い場所は「地図をクリック」で登録)。');
-  exMsg('位置を検索中…');
-  try {
-    const q = withPref((f.town && !f.address.includes(f.town) ? f.town : '') + f.address);
-    const g = await gsiSearch(q) || await osmSearch(q);
-    if (!g) return exMsg('住所が見つかりませんでした。「地図をクリック」で登録してください。');
-    addExtra({ ...f, lat: +g.lat.toFixed(6), lon: +g.lon.toFixed(6), note: '住所から位置を推定' });
-  } catch (e) { exMsg('検索に失敗: ' + e.message); }
-};
-$('exByMap').onclick = () => {
-  const f = exForm();
-  if (!f.name) return exMsg('名称を入れてください。');
-  if (!mapView || $('result').classList.contains('hidden')) return exMsg('先に上で現場を検索して、地図を表示してください。');
-  pickMode = true; $('cv').style.cursor = 'crosshair';
-  exMsg('地図上の避難場所の位置をクリックしてください。');
-  $('cv').scrollIntoView({ behavior: 'smooth', block: 'center' });
-};
-$('cv').addEventListener('click', ev => {
-  if (!pickMode || !mapView) return;
-  pickMode = false; $('cv').style.cursor = '';
-  const cv = $('cv'), r = cv.getBoundingClientRect();
-  const x = (ev.clientX - r.left) * cv.width / r.width + mapView.ox, y = (ev.clientY - r.top) * cv.height / r.height + mapView.oy;
-  const [lon, lat] = pxToLonLat(x, y, mapView.zz);
-  const f = exForm();
-  addExtra({ ...f, address: f.address || (f.town ? f.town + '(地図で指定)' : '(地図で指定)'), lat: +lat.toFixed(6), lon: +lon.toFixed(6), note: '地図で位置を指定' });
-});
-$('exExport').onclick = async () => {
-  const all = loadExtras();
-  const txt = all.map(e => '  ' + JSON.stringify(e) + ',').join('\n');
-  try { await navigator.clipboard.writeText(txt); exMsg(`${all.length}件をコピーしました。hinan-extra.js の [ ] の中身をこれで置き換えてください(共有分も含まれています)。`); }
-  catch (e) { exMsg('コピーに失敗: ' + e.message); }
-};
-renderExtras();
+// ---------- 市町村独自の避難場所(hinan-extra.js) ----------
+function loadExtras() { return window.HINAN_EXTRA || []; }
 
 ['siteName', 'siteAddr'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') run(); }));
 </script>
