@@ -43,7 +43,7 @@
 </style>
 </head>
 <body>
-<h1>避難場所・ルート図くん<span style="font-size:13px;font-weight:normal;color:#6b7280;margin-left:8px">愛知県内</span></h1>
+<h1>避難場所・ルート図くん<span style="font-size:13px;font-weight:normal;color:#6b7280;margin-left:8px">愛知県・岐阜県・三重県・静岡県</span></h1>
 
 <div class="card">
   <div class="row">
@@ -95,11 +95,13 @@
 
 <div class="card note">
   データ: 指定避難所・指定緊急避難場所データ(国土地理院)+愛知県 指定緊急避難場所一覧のうち国のデータに未収録の分(住所から位置を推定)+市町村が独自に指定した避難場所/位置検索: 国土地理院・OpenStreetMap(現場名のみの場合)/地図: 地理院タイル(淡色・標準・写真)・OpenStreetMap/徒歩経路: OpenStreetMap contributors・Valhalla(FOSSGIS公開サーバー、1リクエスト/秒まで)。<br>
-  検索対象は愛知県内です(住所に県名が無ければ「愛知県」を補って検索します)。愛知県の公式一覧: <a href="https://www.pref.aichi.jp/uploaded/attachment/593307.pdf" target="_blank" rel="noopener">指定緊急避難場所一覧(PDF・2025年4月1日時点)</a><br>
+  検索対象は愛知県・岐阜県・三重県・静岡県です(住所に県名が無ければ、市町村名から県を判別して補います。判別できないときは愛知県として検索します)。<br>
+  岐阜県・三重県・静岡県は国のデータに加え、岐阜市・三重県7市町(桑名市・木曽岬町・朝日町・鈴鹿市・津市・名張市・尾鷲市)の一覧と<a href="https://www.bousai-portal.pref.shizuoka.jp/refuge-list" target="_blank" rel="noopener">静岡県防災ポータルの避難所一覧</a>のうち、国のデータに無いものを収録しています。愛知県の公式一覧: <a href="https://www.pref.aichi.jp/uploaded/attachment/593307.pdf" target="_blank" rel="noopener">指定緊急避難場所一覧(PDF・2025年4月1日時点)</a><br>
   避難場所は市町村が登録・公開同意したデータのみです。「現地」「病院」の自動判定は目安なので、必ず現場の避難計画で確認してください。
 </div>
 
 <script src="hinan-pref.js"></script>
+<script src="hinan-region.js"></script>
 <script src="hinan-extra.js"></script>
 <script>
 // ============ CORE (純粋関数: テスト対象) ============
@@ -227,40 +229,63 @@ let state = null;   // 直近の結果
 
 function setStatus(t) { $('status').textContent = t || ''; }
 
-// 愛知県の範囲(少し余裕を持たせた外枠)
-const AICHI = { s: 34.55, n: 35.45, w: 136.65, e: 137.86 };
-function inAichi(lat, lon) { return lat >= AICHI.s && lat <= AICHI.n && lon >= AICHI.w && lon <= AICHI.e; }
-// 住所に都道府県名が無ければ「愛知県」を補う
+// 対象: 愛知県・岐阜県・三重県・静岡県(各県の範囲は少し余裕を持たせた外枠)
+const PREFS = {
+  '愛知県': { s: 34.55, n: 35.45, w: 136.65, e: 137.86 },
+  '岐阜県': { s: 35.12, n: 36.48, w: 136.26, e: 137.67 },
+  '三重県': { s: 33.70, n: 35.27, w: 135.84, e: 137.00 },
+  '静岡県': { s: 34.56, n: 35.66, w: 137.46, e: 139.19 },
+};
+const AREA = { s: 33.70, n: 36.48, w: 135.84, e: 139.19 };   // 4県をまとめた外枠(施設名検索用)
+const PREF_NAMES = Object.keys(PREFS);
+function inArea(lat, lon) { return PREF_NAMES.some(p => { const b = PREFS[p]; return lat >= b.s && lat <= b.n && lon >= b.w && lon <= b.e; }); }
+// 文字列に4県以外の都道府県名が入っていたら対象外
+function otherPref(text) { const m = String(text || '').match(/(北海道|東京都|京都府|大阪府|.{2,3}県)/g) || []; return m.length > 0 && !m.some(x => PREF_NAMES.includes(x)); }
+// 県名が無い住所の県を、市町村名から判別する(郡名から始まっていてもOK)
+const GIFU_TOWNS = '岐阜市 大垣市 高山市 多治見市 関市 中津川市 美濃市 瑞浪市 羽島市 恵那市 美濃加茂市 土岐市 各務原市 可児市 山県市 瑞穂市 飛騨市 本巣市 郡上市 下呂市 海津市 岐南町 笠松町 養老町 垂井町 関ケ原町 関ヶ原町 神戸町 輪之内町 安八町 揖斐川町 大野町 池田町 北方町 坂祝町 富加町 川辺町 七宗町 八百津町 白川町 東白川村 御嵩町 白川村'.split(' ');
+const SHIZUOKA_TOWNS = '静岡市 浜松市 沼津市 熱海市 三島市 富士宮市 伊東市 島田市 富士市 磐田市 焼津市 掛川市 藤枝市 御殿場市 袋井市 下田市 裾野市 湖西市 伊豆市 御前崎市 菊川市 伊豆の国市 牧之原市 東伊豆町 河津町 南伊豆町 松崎町 西伊豆町 函南町 清水町 長泉町 小山町 吉田町 川根本町 森町'.split(' ');
+const MIE_TOWNS = '津市 四日市市 伊勢市 松阪市 桑名市 鈴鹿市 名張市 尾鷲市 亀山市 鳥羽市 熊野市 いなべ市 志摩市 伊賀市 木曽岬町 東員町 菰野町 朝日町 川越町 多気町 明和町 大台町 玉城町 度会町 大紀町 南伊勢町 紀北町 御浜町 紀宝町'.split(' ');
 // 名古屋市の区名から始まる住所(例: 中川区尾頭橋2-6-14)は「名古屋市」も補う
 const NAGOYA_WARD_RE = /^(千種|東|北|西|中村|中|昭和|瑞穂|熱田|中川|港|南|守山|緑|名東|天白)区/;
+function prefOf(q) {
+  const t = q.replace(/^[^市町村d]{1,4}郡/, '');
+  if (GIFU_TOWNS.some(n => t.startsWith(n))) return '岐阜県';
+  if (MIE_TOWNS.some(n => t.startsWith(n))) return '三重県';
+  if (SHIZUOKA_TOWNS.some(n => t.startsWith(n))) return '静岡県';
+  return '愛知県';
+}
 function withPref(q) {
-  if (/^(愛知県|.{2,3}[都道府県])/.test(q)) return q;
-  return '愛知県' + (NAGOYA_WARD_RE.test(q) ? '名古屋市' : '') + q;
+  if (/^(北海道|東京都|京都府|大阪府|.{2,3}県)/.test(q)) return q;
+  if (NAGOYA_WARD_RE.test(q)) return '愛知県名古屋市' + q;
+  if (/^(葵|駿河|清水)区/.test(q)) return '静岡県静岡市' + q;     // 静岡市の区
+  if (/^(中央|浜名|天竜)区/.test(q)) return '静岡県浜松市' + q;     // 浜松市の区
+  return prefOf(q) + q;
 }
 // 検索結果が県や市町村だけ(番地などが合っていない)なら、その結果は使わない
 // 例: 「愛知県中川区…」で検索すると「愛知県」(県庁の位置)だけが返ってくることがある
 function isCoarseTitle(title) {
-  const t = String(title || '').replace(/^愛知県/, '').replace(/^.{1,4}郡/, '');
-  return t === '' || /^[^市町村]{1,6}[市町村]$/.test(t) || /^名古屋市[^区]{1,3}区$/.test(t);
+  const t = String(title || '').replace(/^(愛知県|岐阜県|三重県|静岡県)/, '').replace(/^.{1,4}郡/, '');
+  return t === '' || /^[^市町村]{1,6}[市町村]$/.test(t) || /^(名古屋|静岡|浜松)市[^区]{1,3}区$/.test(t);
 }
 
 async function gsiSearch(q) {
   const r = await fetch('https://msearch.gsi.go.jp/address-search/AddressSearch?q=' + encodeURIComponent(q));
   if (!r.ok) throw new Error('住所検索に失敗しました(HTTP ' + r.status + ')');
-  const j = (await r.json()).filter(f => { const [lo, la] = f.geometry.coordinates; return inAichi(la, lo) && !isCoarseTitle(f.properties.title); });
+  const j = (await r.json()).filter(f => { const [lo, la] = f.geometry.coordinates;
+    return inArea(la, lo) && !otherPref(f.properties.title) && !isCoarseTitle(f.properties.title); });
   if (!j.length) return null;
   const [lon, lat] = j[0].geometry.coordinates;
   return { lat, lon, title: j[0].properties.title, count: j.length, source: '国土地理院' };
 }
 async function osmSearch(q) {
-  const vb = `${AICHI.w},${AICHI.n},${AICHI.e},${AICHI.s}`;
-  const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=jp&limit=1&accept-language=ja&bounded=1&viewbox=' + vb + '&q=' + encodeURIComponent(q));
+  const vb = `${AREA.w},${AREA.n},${AREA.e},${AREA.s}`;
+  const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=jp&limit=5&accept-language=ja&bounded=1&viewbox=' + vb + '&q=' + encodeURIComponent(q));
   if (!r.ok) throw new Error('施設名検索に失敗しました(HTTP ' + r.status + ')');
-  const j = (await r.json()).filter(x => inAichi(+x.lat, +x.lon));
+  const j = (await r.json()).filter(x => inArea(+x.lat, +x.lon) && PREF_NAMES.some(p => String(x.display_name).includes(p)));
   if (!j.length) return null;
   return { lat: +j[0].lat, lon: +j[0].lon, title: j[0].display_name, count: 1, source: 'OpenStreetMap' };
 }
-// 住所があれば住所で、なければ現場名で位置を探す(どちらか一方でOK)。愛知県内に限定
+// 住所があれば住所で、なければ現場名で位置を探す(どちらか一方でOK)。愛知県・岐阜県・三重県・静岡県に限定
 async function geocodeAny(name, addr) {
   let g = null, errs = [];
   const tryIt = async f => { try { return await f(); } catch (e) { errs.push(e.message); return null; } };
@@ -273,7 +298,7 @@ async function geocodeAny(name, addr) {
     g = await tryIt(() => osmSearch(name)) || await tryIt(() => gsiSearch(name));
     if (g) return { ...g, byName: true };
   }
-  throw new Error(errs.length ? errs[0] : '愛知県内で位置が見つかりませんでした。住所を番地まで入れるか、現場名を正式名称で入れてください。');
+  throw new Error(errs.length ? errs[0] : '愛知県・岐阜県・三重県・静岡県の中で位置が見つかりませんでした。住所を番地まで入れるか、現場名を正式名称で入れてください。');
 }
 
 // 避難場所の取得(地理院 指定緊急避難場所データ タイル)
@@ -656,7 +681,7 @@ function loadExtras() {
   const pref = (window.HINAN_PREF || []).map(([name, town, address, lat, lon]) => ({
     name, town, address, lat, lon, type: '指定緊急避難場所', official: true,
     source: '愛知県 指定緊急避難場所一覧', note: '国のデータに未収録・位置は住所から推定' }));
-  return pref.concat(window.HINAN_EXTRA || []);
+  return pref.concat(window.HINAN_REGION || [], window.HINAN_EXTRA || []);
 }
 
 ['siteName', 'siteAddr'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') run(); }));
