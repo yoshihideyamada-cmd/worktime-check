@@ -143,7 +143,7 @@ function show(title,u,details,plannedTotal){
  notice.style='white-space:pre-line;margin-top:12px';
 
  var changelog=document.createElement('div');
- changelog.textContent='※予定残業を「現在+予定」の合計で表示するようにしました。26/11/12';
+ changelog.textContent='※祝日など会社の休日は、代付申請がなくても休日出勤として計算するようにしました。26/11/26';
  changelog.style='color:#0645ad;margin-top:4px';
 
  box.appendChild(close);
@@ -310,7 +310,7 @@ function runCalc(reasonMap,gapMap){
     nightGap+=night(gapPairs[gi][0],gapPairs[gi][1],p);
    }
 
-   if(/\(土\)|\(日\)|休日|出勤登録/.test(d+j)){
+   if(/\(土\)|\(日\)|休日|出勤登録/.test(d+j)||/xs-background-red/.test(R[i].className)){
     w=c(ea<0?os:ea,oe,p)-gap;
     if(w<0)w=0;
     m=/代付/.test(j)?Math.max(0,w-465):w;

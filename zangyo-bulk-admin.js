@@ -520,7 +520,7 @@ function showSummary(path,scopeLabel,results){
  notice.style='white-space:pre-line;margin-top:12px;font-size:12px;color:#666';
 
  var changelog=document.createElement('div');
- changelog.textContent='※残業時間を「現在」と「予定(現在+予定)」で表示するようにしました。26/11/12';
+ changelog.textContent='※祝日など会社の休日は、代付申請がなくても休日出勤として計算するようにしました。26/11/26';
  changelog.style='color:#0645ad;margin-top:4px;font-size:12px';
 
  box.appendChild(close);
@@ -688,7 +688,7 @@ function calcUserTotal(reasonMap,isManager,gapMap){
    gap=0;
    for(var gi=0;gi<gapPairs.length;gi++)gap+=c(gapPairs[gi][0],gapPairs[gi][1],p);
 
-   if(/\(土\)|\(日\)|休日|出勤登録/.test(d+j)){
+   if(/\(土\)|\(日\)|休日|出勤登録/.test(d+j)||/xs-background-red/.test(R[i].className)){
     w=c(ea<0?os:ea,oe,p)-gap;
     if(w<0)w=0;
     m=/代付/.test(j)?Math.max(0,w-465):w;
