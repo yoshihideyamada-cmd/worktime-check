@@ -31,14 +31,14 @@
   canvas { max-width:100%; border:1px solid var(--bd); border-radius:6px; }
   .note { font-size:12px; color:#6b7280; line-height:1.6; }
   .hidden { display:none; }
-  /* 印刷時は地図(メモ欄つき)だけを A4横1枚に出す */
+  /* 印刷時は地図(メモ欄つき)だけを A4縦1枚に出す */
   #printArea { display:none; }
-  @page { size: A4 landscape; margin: 8mm; }
+  @page { size: A4 portrait; margin: 8mm; }
   @media print {
     body { background:#fff; padding:0; }
     body > *:not(#printArea) { display:none !important; }
     #printArea { display:block; }
-    #printArea img { display:block; width:100%; height:auto; max-height:190mm; object-fit:contain; border:none; }
+    #printArea img { display:block; width:100%; height:auto; max-height:280mm; object-fit:contain; border:none; }
   }
 </style>
 </head>
@@ -314,7 +314,9 @@ function loadImg(src) {
   });
 }
 // onsite: 現場自体が避難場所(線は引かず、避難場所の印だけ描く)
+let lastDraw = null;   // 直近の drawMap の引数(印刷用に描き直すときに使う)
 async function drawMap(site, others, best, onsite) {
+  lastDraw = [site, others, best, onsite];
   const cv = $('cv'), ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
   const pts = [[site.lat, site.lon]];
   if (best) { pts.push([best.s.lat, best.s.lon]); if (best.route) pts.push(...best.route.shape); }
@@ -549,13 +551,28 @@ $('dlPdf').onclick = async () => {
   } catch (e) { $('copyMsg').textContent = 'PDF作成に失敗: ' + e.message; }
 };
 // 印刷: 地図(メモ欄つき)の画像だけを印刷用の枠に入れて印刷する。Ctrl+P でも同じ
-function preparePrint() {
+function preparePrint(url) {
   let pa = $('printArea');
   if (!pa) { pa = document.createElement('div'); pa.id = 'printArea'; document.body.appendChild(pa); }
-  pa.innerHTML = state ? `<img alt="避難ルート図" src="${$('cv').toDataURL('image/png')}">` : '';
+  pa.innerHTML = state ? `<img alt="避難ルート図" src="${url || $('cv').toDataURL('image/png')}">` : '';
 }
-window.addEventListener('beforeprint', preparePrint);
-$('printMap').onclick = () => { preparePrint(); window.print(); };
+let printing = false;
+window.addEventListener('beforeprint', () => { if (!printing) preparePrint(); });   // Ctrl+P は今の地図(横長)をそのまま
+// 「地図を印刷」: A4縦に合う縦長の地図を描き直して印刷し、画面の地図は元に戻す
+$('printMap').onclick = async () => {
+  if (!state || !lastDraw) return;
+  const cv = $('cv'), w = cv.width, h = cv.height;
+  $('printMap').disabled = true; $('copyMsg').textContent = '印刷用の地図(A4縦)を作成中…';
+  try {
+    cv.width = 1000; cv.height = 1414;
+    await drawMap(...lastDraw); drawMemo();
+    const url = cv.toDataURL('image/png');
+    cv.width = w; cv.height = h;
+    await drawMap(...lastDraw); drawMemo();
+    preparePrint(url); $('copyMsg').textContent = '';
+    printing = true; window.print();
+  } finally { printing = false; $('printMap').disabled = false; }
+};
 $('dlImg').onclick = () => {
   const a = document.createElement('a');
   a.download = ((state && state.site.name) || 'route') + '_ルート図.png';
