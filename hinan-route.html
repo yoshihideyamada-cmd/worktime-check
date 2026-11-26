@@ -77,11 +77,12 @@
 </div>
 
 <div class="card note">
-  データ: 指定避難所・指定緊急避難場所データ(国土地理院)+市町村が独自に指定した避難場所(hinan-extra.js に登録した分)/位置検索: 国土地理院・OpenStreetMap(現場名のみの場合)/地図: 地理院タイル/徒歩経路: OpenStreetMap contributors・Valhalla(FOSSGIS公開サーバー、1リクエスト/秒まで)。<br>
+  データ: 指定避難所・指定緊急避難場所データ(国土地理院)+愛知県 指定緊急避難場所一覧のうち国のデータに未収録の分(住所から位置を推定)+市町村が独自に指定した避難場所/位置検索: 国土地理院・OpenStreetMap(現場名のみの場合)/地図: 地理院タイル/徒歩経路: OpenStreetMap contributors・Valhalla(FOSSGIS公開サーバー、1リクエスト/秒まで)。<br>
   検索対象は愛知県内です(住所に県名が無ければ「愛知県」を補って検索します)。愛知県の公式一覧: <a href="https://www.pref.aichi.jp/uploaded/attachment/593307.pdf" target="_blank" rel="noopener">指定緊急避難場所一覧(PDF・2025年4月1日時点)</a><br>
   避難場所は市町村が登録・公開同意したデータのみです。「現地」「病院」の自動判定は目安なので、必ず現場の避難計画で確認してください。
 </div>
 
+<script src="hinan-pref.js"></script>
 <script src="hinan-extra.js"></script>
 <script>
 // ============ CORE (純粋関数: テスト対象) ============
@@ -192,7 +193,7 @@ function toExtraShelter(e, g) {
   const lat = +e.lat, lon = +e.lon;
   if (!isFinite(lat) || !isFinite(lon) || !e.name) return null;
   const kind = e.type || '市町村指定の避難場所';
-  return { name: e.name, address: e.address || '', lat, lon, hz: new Set([kind]), kind, extra: true,
+  return { name: e.name, address: e.address || '', lat, lon, hz: new Set([kind]), kind, extra: !e.official, official: !!e.official,
            town: e.town || '', src: e.source || '', note: e.note || '', dist: haversine(g.lat, g.lon, lat, lon) };
 }
 function typeOf(s) { return s.extra ? s.kind : typeLabel(s.hz); }
@@ -401,7 +402,8 @@ async function run() {
     shelters = shelters.concat(extras).sort((a, b) => a.dist - b.dist);
     const nearest = shelters[0] || null;
     // 最寄りだけでなく、近くの全候補から「現場と同一地点/同名」のものを探す
-    const onsiteHit = shelters.find(s => judgeOnSite(name, s)) || null;
+    // 住所から位置を推定したデータ(愛知県一覧の補完分)は位置が粗いので、名称一致のときだけ「当現場」とみなす
+    const onsiteHit = shelters.find(s => s.official ? (s.dist <= 300 && nameMatch(name, s.name)) : judgeOnSite(name, s)) || null;
 
     // 判定
     const hosp = isHospitalName(name);
@@ -492,7 +494,7 @@ function render() {
       <td>${esc(c.s.name)}</td><td>${esc(c.s.address)}</td>
       <td>${fmtDist(c.s.dist)}</td>
       <td>${c.route ? fmtDist(c.route.meters) + '(約' + Math.max(1, Math.round(c.route.sec / 60)) + '分)' : (c.err ? '取得失敗' : '—')}</td>
-      <td>${[...c.s.hz].map(esc).join('・')}${c.s.extra ? '<div class="note">' + esc((c.s.town ? c.s.town + 'の独自指定' : '市町村の独自指定') + (c.s.src ? ' / 出典: ' + c.s.src : '') + (c.s.note ? ' / ' + c.s.note : '')) + '</div>' : ''}</td></tr>`).join('');
+      <td>${[...c.s.hz].map(esc).join('・')}${c.s.extra || c.s.official ? '<div class="note">' + esc((c.s.official ? '' : (c.s.town ? c.s.town + 'の独自指定 / ' : '市町村の独自指定 / ')) + (c.s.src ? '出典: ' + c.s.src : '') + (c.s.note ? ' / ' + c.s.note : '')) + '</div>' : ''}</td></tr>`).join('');
   } else rows = '<tr><td colspan="6">約4km以内に該当する避難所データが見つかりませんでした。</td></tr>';
   $('tbl').innerHTML = '<tr><th>順位</th><th>避難場所</th><th>住所</th><th>直線距離</th><th>徒歩(実距離)</th><th>種別・対応災害</th></tr>' + rows;
 }
@@ -536,7 +538,13 @@ $('dlImg').onclick = () => {
   a.href = $('cv').toDataURL('image/png'); a.click();
 };
 // ---------- 市町村独自の避難場所(hinan-extra.js) ----------
-function loadExtras() { return window.HINAN_EXTRA || []; }
+// 愛知県一覧のうち国のデータに無いもの(hinan-pref.js)+市町村独自の避難場所(hinan-extra.js)
+function loadExtras() {
+  const pref = (window.HINAN_PREF || []).map(([name, town, address, lat, lon]) => ({
+    name, town, address, lat, lon, type: '指定緊急避難場所', official: true,
+    source: '愛知県 指定緊急避難場所一覧', note: '国のデータに未収録・位置は住所から推定' }));
+  return pref.concat(window.HINAN_EXTRA || []);
+}
 
 ['siteName', 'siteAddr'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') run(); }));
 </script>
