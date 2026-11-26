@@ -61,7 +61,7 @@ h1{
 <p>下の青いボタンを、ブラウザの「お気に入りバー(ブックマークバー)」までドラッグ&ドロップしてください。</p>
 
 <a class="bookmarklet" draggable="true"
-   href="javascript:(function(){var u='https://yoshihideyamada-cmd.github.io/worktime-check/hinan-route.html';var t=String(window.getSelection?window.getSelection():'').replace(/\s+/g,' ').trim();if(!t){t=prompt('現場名か住所を入力してください(空欄のままOKで、ツールだけ開きます)','');if(t===null)return;t=t.trim();}window.open(u+(t?'?q='+encodeURIComponent(t.slice(0,200)):''),'_blank');})()">
+   href="javascript:(function(){var u='https://yoshihideyamada-cmd.github.io/worktime-check/hinan-route.html';var t=String(window.getSelection?window.getSelection():'').replace(/\s+/g,' ').trim();window.open(u+(t?'?q='+encodeURIComponent(t.slice(0,200)):''),'_blank');})()">
 避難ルート図くん
 </a>
 
@@ -73,9 +73,9 @@ h1{
 
 <b>使い方</b>
 <ul>
-<li>見積書・メール・Excel(Web)などに書かれた<b>現場名か住所を選択(なぞる)</b>してから、登録したブックマークをクリックしてください</li>
-<li>避難場所・ルート図くんが別タブで開き、選んだ文字で自動的に最寄りの避難場所とルート図を作ります</li>
-<li>何も選択せずにクリックすると、現場名か住所を入力する欄が出ます(空欄のままOKで、ツールだけ開きます)</li>
+<li>登録したブックマークをクリックすると、避難場所・ルート図くんが別タブで開きます</li>
+<li>現場名か住所を入れて「検索・ルート図を作成」を押してください</li>
+<li>(便利な使い方)メールや見積書の<b>現場名か住所をなぞって選択</b>してからクリックすると、その文字が入った状態で開き、自動で検索します</li>
 </ul>
 </div>
 

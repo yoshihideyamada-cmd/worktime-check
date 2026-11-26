@@ -396,6 +396,7 @@ function drawMemo() {
   const cv = $('cv'), ctx = cv.getContext('2d');
   if (!baseCv) return;
   ctx.drawImage(baseCv, 0, 0);
+  schedulePrintRefresh();
   const lines = $('memo').value.split('\n').filter(l => l.trim() !== '');
   if (!lines.length) return;
   const fs = 24, lh = 36, padX = 16, padY = 12;
@@ -571,26 +572,46 @@ $('dlPdf').onclick = async () => {
   } catch (e) { $('copyMsg').textContent = 'PDF作成に失敗: ' + e.message; }
 };
 // 印刷: 地図(メモ欄つき)の画像だけを印刷用の枠に入れて印刷する。Ctrl+P でも同じ
-function preparePrint(url) {
+// 印刷用の画像を作って印刷枠に入れ、読み込み(表示準備)が終わるまで待つ。
+// ※画像の読み込み前に印刷画面を開くと白紙になるため、必ず待ってから印刷する
+const canvasBlobUrl = (cv) => new Promise(res => cv.toBlob(b => res(b ? URL.createObjectURL(b) : cv.toDataURL('image/png')), 'image/png'));
+let printUrl = null;
+async function preparePrint(url) {
   let pa = $('printArea');
   if (!pa) { pa = document.createElement('div'); pa.id = 'printArea'; document.body.appendChild(pa); }
-  pa.innerHTML = state ? `<img alt="避難ルート図" src="${url || $('cv').toDataURL('image/png')}">` : '';
+  if (!state) { pa.innerHTML = ''; return; }
+  const src = url || await canvasBlobUrl($('cv'));
+  const img = new Image(); img.alt = '避難ルート図'; img.src = src;
+  try { await img.decode(); } catch (e) { await new Promise(r => { img.onload = img.onerror = r; }); }
+  pa.replaceChildren(img);
+  if (printUrl && printUrl !== src && printUrl.startsWith('blob:')) URL.revokeObjectURL(printUrl);
+  printUrl = src;
 }
-let printing = false;
-window.addEventListener('beforeprint', () => { if (!printing) preparePrint(); });   // Ctrl+P は今の地図(横長)をそのまま
+let printing = false, printTimer = null;
+// 地図やメモを描き直したら、少し待って印刷用の画像も作り直しておく(Ctrl+P で印刷したときも白紙にならないように)
+function schedulePrintRefresh() {
+  clearTimeout(printTimer);
+  printTimer = setTimeout(() => { if (!printing) preparePrint(); }, 500);
+}
 // 「地図を印刷」: A4縦に合う縦長の地図を描き直して印刷し、画面の地図は元に戻す
 $('printMap').onclick = async () => {
   if (!state || !lastDraw) return;
   const cv = $('cv'), w = cv.width, h = cv.height;
   $('printMap').disabled = true; $('copyMsg').textContent = '印刷用の地図(A4縦)を作成中…';
+  printing = true;
   try {
     cv.width = 1000; cv.height = 1414;
     await drawMap(...lastDraw); drawMemo();
-    const url = cv.toDataURL('image/png');
+    const url = await canvasBlobUrl(cv);
     cv.width = w; cv.height = h;
     await drawMap(...lastDraw); drawMemo();
-    preparePrint(url); $('copyMsg').textContent = '';
-    printing = true; window.print();
+    clearTimeout(printTimer);
+    await preparePrint(url);              // 画像の読み込みが終わってから
+    $('copyMsg').textContent = '';
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    window.print();
+  } catch (e) {
+    $('copyMsg').textContent = '印刷用の地図を作れませんでした(' + e.message + ')。「PDFで保存」を使ってください。';
   } finally { printing = false; $('printMap').disabled = false; }
 };
 $('dlImg').onclick = () => {
