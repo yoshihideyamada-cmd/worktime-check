@@ -77,6 +77,13 @@
     <canvas id="cv" width="1200" height="820"></canvas>
   </div>
   <div class="btns">
+    <label style="display:inline-flex;align-items:center;gap:4px;margin:0;font-size:13px;color:#1f2937">地図の種類
+      <select id="baseMap" style="width:auto;padding:5px 6px;font-size:13px">
+        <option value="pale">見やすい地図(淡色)</option>
+        <option value="osm">OpenStreetMap</option>
+        <option value="std">詳しい地図(標準)</option>
+        <option value="photo">航空写真</option>
+      </select></label>
     <button id="printMap">地図を印刷</button>
     <button id="dlPdf">PDFで保存</button>
     <button id="copyImg" class="sub">ルート図をコピー(画像)</button>
@@ -87,7 +94,7 @@
 </div>
 
 <div class="card note">
-  データ: 指定避難所・指定緊急避難場所データ(国土地理院)+愛知県 指定緊急避難場所一覧のうち国のデータに未収録の分(住所から位置を推定)+市町村が独自に指定した避難場所/位置検索: 国土地理院・OpenStreetMap(現場名のみの場合)/地図: 地理院タイル/徒歩経路: OpenStreetMap contributors・Valhalla(FOSSGIS公開サーバー、1リクエスト/秒まで)。<br>
+  データ: 指定避難所・指定緊急避難場所データ(国土地理院)+愛知県 指定緊急避難場所一覧のうち国のデータに未収録の分(住所から位置を推定)+市町村が独自に指定した避難場所/位置検索: 国土地理院・OpenStreetMap(現場名のみの場合)/地図: 地理院タイル(淡色・標準・写真)・OpenStreetMap/徒歩経路: OpenStreetMap contributors・Valhalla(FOSSGIS公開サーバー、1リクエスト/秒まで)。<br>
   検索対象は愛知県内です(住所に県名が無ければ「愛知県」を補って検索します)。愛知県の公式一覧: <a href="https://www.pref.aichi.jp/uploaded/attachment/593307.pdf" target="_blank" rel="noopener">指定緊急避難場所一覧(PDF・2025年4月1日時点)</a><br>
   避難場所は市町村が登録・公開同意したデータのみです。「現地」「病院」の自動判定は目安なので、必ず現場の避難計画で確認してください。
 </div>
@@ -314,6 +321,14 @@ function loadImg(src) {
   });
 }
 // onsite: 現場自体が避難場所(線は引かず、避難場所の印だけ描く)
+// 背景地図(いずれも画像として保存・印刷してよい出典表示つきのもの)
+const BASEMAPS = {
+  pale:  { url: (z, x, y) => `https://cyberjapandata.gsi.go.jp/xyz/pale/${z}/${x}/${y}.png`, att: '国土地理院(淡色地図)' },
+  osm:   { url: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`, att: '© OpenStreetMap contributors' },
+  std:   { url: (z, x, y) => `https://cyberjapandata.gsi.go.jp/xyz/std/${z}/${x}/${y}.png`, att: '国土地理院(標準地図)' },
+  photo: { url: (z, x, y) => `https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/${z}/${x}/${y}.jpg`, att: '国土地理院(写真)' },
+};
+function baseKey() { const v = $('baseMap') && $('baseMap').value; return BASEMAPS[v] ? v : 'pale'; }
 let lastDraw = null;   // 直近の drawMap の引数(印刷用に描き直すときに使う)
 async function drawMap(site, others, best, onsite) {
   lastDraw = [site, others, best, onsite];
@@ -334,13 +349,13 @@ async function drawMap(site, others, best, onsite) {
   const y0 = Math.floor(oy / 256), y1 = Math.floor((oy + H) / 256);
   const jobs = [];
   for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++)
-    jobs.push(loadImg(`https://cyberjapandata.gsi.go.jp/xyz/std/${zz}/${x}/${y}.png`).then(im => ({ im, x, y })));
+    jobs.push(loadImg(BASEMAPS[baseKey()].url(zz, x, y)).then(im => ({ im, x, y })));
   for (const { im, x, y } of await Promise.all(jobs))
     if (im) ctx.drawImage(im, x * 256 - ox, y * 256 - oy);
   const P = (lat, lon) => { const [x, y] = lonLatToPx(lon, lat, zz); return [x - ox, y - oy]; };
   if (best && best.route) {
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    for (const [w, c] of [[9, '#ffffff'], [5, '#1f5fbf']]) {
+    for (const [w, c] of [[13, '#ffffff'], [8, '#1f5fbf']]) {
       ctx.beginPath(); ctx.lineWidth = w; ctx.strokeStyle = c;
       best.route.shape.forEach(([la, lo], i) => { const [x, y] = P(la, lo); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
       ctx.stroke();
@@ -351,14 +366,14 @@ async function drawMap(site, others, best, onsite) {
     ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke(); ctx.setLineDash([]);
   }
   const label = (txt, x, y, color) => {
-    ctx.font = 'bold 16px Meiryo, "Yu Gothic", sans-serif';
-    ctx.lineWidth = 4; ctx.strokeStyle = '#fff'; ctx.strokeText(txt, x + 14, y - 10);
-    ctx.fillStyle = color; ctx.fillText(txt, x + 14, y - 10);
+    ctx.font = 'bold 22px Meiryo, "Yu Gothic", sans-serif';
+    ctx.lineWidth = 6; ctx.strokeStyle = '#fff'; ctx.lineJoin = 'round'; ctx.strokeText(txt, x + 20, y - 14);
+    ctx.fillStyle = color; ctx.fillText(txt, x + 20, y - 14);
   };
   const marker = (x, y, ch, color) => {
-    ctx.beginPath(); ctx.arc(x, y, 12, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y, 17, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
     ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(ch, x, y + 1); ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
   };
   for (const o of others) { const [x, y] = P(o.s.lat, o.s.lon); marker(x, y, '', '#9ca3af'); }
@@ -369,7 +384,7 @@ async function drawMap(site, others, best, onsite) {
   }
   const [sx, sy] = P(site.lat, site.lon); marker(sx, sy, '現', '#dc2626'); label(site.name || '現場', sx, sy, '#991b1b');
   ctx.font = '11px sans-serif'; ctx.fillStyle = 'rgba(255,255,255,.85)';
-  const att = '地図: 国土地理院タイル / 経路: OpenStreetMap contributors, Valhalla';
+  const att = '地図: ' + BASEMAPS[baseKey()].att + ' / 経路: OpenStreetMap contributors, Valhalla';
   const tw = ctx.measureText(att).width; ctx.fillRect(W - tw - 10, H - 18, tw + 8, 16);
   ctx.fillStyle = '#374151'; ctx.fillText(att, W - tw - 6, H - 6);
   baseCv = document.createElement('canvas'); baseCv.width = W; baseCv.height = H;
@@ -535,6 +550,11 @@ $('copyTxt').onclick = async () => {
   catch (e) { $('copyMsg').textContent = 'コピーに失敗: ' + e.message; }
 };
 $('memo').addEventListener('input', drawMemo);
+$('baseMap').addEventListener('change', async () => {
+  try { localStorage.setItem('hinanBaseMap', $('baseMap').value); } catch (e) {}
+  if (lastDraw) { await drawMap(...lastDraw); drawMemo(); }
+});
+try { const v = localStorage.getItem('hinanBaseMap'); if (v && BASEMAPS[v]) $('baseMap').value = v; } catch (e) {}
 $('dlPdf').onclick = async () => {
   try {
     const cv = $('cv');
