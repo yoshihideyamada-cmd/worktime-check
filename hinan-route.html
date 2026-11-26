@@ -79,13 +79,12 @@
   <div class="btns">
     <label style="display:inline-flex;align-items:center;gap:4px;margin:0;font-size:13px;color:#1f2937">地図の種類
       <select id="baseMap" style="width:auto;padding:5px 6px;font-size:13px">
-        <option value="pale">見やすい地図(淡色)</option>
         <option value="osm">OpenStreetMap</option>
+        <option value="pale">淡色地図</option>
         <option value="std">詳しい地図(標準)</option>
         <option value="photo">航空写真</option>
       </select></label>
     <button id="printMap">地図を印刷</button>
-    <button id="openGmap" class="sub">Googleマップで開く(徒歩ルート)</button>
     <button id="dlPdf">PDFで保存</button>
     <button id="copyImg" class="sub">ルート図をコピー(画像)</button>
     <button id="copyTxt" class="sub">避難先をコピー(Excel貼付用の1行)</button>
@@ -329,7 +328,7 @@ const BASEMAPS = {
   std:   { url: (z, x, y) => `https://cyberjapandata.gsi.go.jp/xyz/std/${z}/${x}/${y}.png`, att: '国土地理院(標準地図)' },
   photo: { url: (z, x, y) => `https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/${z}/${x}/${y}.jpg`, att: '国土地理院(写真)' },
 };
-function baseKey() { const v = $('baseMap') && $('baseMap').value; return BASEMAPS[v] ? v : 'pale'; }
+function baseKey() { const v = $('baseMap') && $('baseMap').value; return BASEMAPS[v] ? v : 'osm'; }
 let lastDraw = null;   // 直近の drawMap の引数(印刷用に描き直すときに使う)
 async function drawMap(site, others, best, onsite) {
   lastDraw = [site, others, best, onsite];
@@ -552,10 +551,10 @@ $('copyTxt').onclick = async () => {
 };
 $('memo').addEventListener('input', drawMemo);
 $('baseMap').addEventListener('change', async () => {
-  try { localStorage.setItem('hinanBaseMap', $('baseMap').value); } catch (e) {}
+  try { localStorage.setItem('hinanBaseMap2', $('baseMap').value); } catch (e) {}
   if (lastDraw) { await drawMap(...lastDraw); drawMemo(); }
 });
-try { const v = localStorage.getItem('hinanBaseMap'); if (v && BASEMAPS[v]) $('baseMap').value = v; } catch (e) {}
+try { const v = localStorage.getItem('hinanBaseMap2'); if (v && BASEMAPS[v]) $('baseMap').value = v; } catch (e) {}
 $('dlPdf').onclick = async () => {
   try {
     const cv = $('cv');
@@ -594,16 +593,6 @@ $('printMap').onclick = async () => {
     printing = true; window.print();
   } finally { printing = false; $('printMap').disabled = false; }
 };
-// Googleマップ(別タブ)で現場→避難場所の徒歩ルートを開く。現地避難のときは避難場所の位置を開く
-$('openGmap').onclick = () => {
-  if (!state) return;
-  const { site, best, mode } = state;
-  const ll = (o) => o.lat.toFixed(6) + ',' + o.lon.toFixed(6);
-  const url = best && mode !== 'onsite' && mode !== 'wait'
-    ? 'https://www.google.com/maps/dir/?api=1&travelmode=walking&origin=' + ll(site) + '&destination=' + ll(best.s)
-    : 'https://www.google.com/maps/search/?api=1&query=' + ll(best ? best.s : site);
-  window.open(url, '_blank', 'noopener');
-};
 $('dlImg').onclick = () => {
   const a = document.createElement('a');
   a.download = ((state && state.site.name) || 'route') + '_ルート図.png';
@@ -619,6 +608,22 @@ function loadExtras() {
 }
 
 ['siteName', 'siteAddr'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') run(); }));
+
+// ブックマーク(避難ルート図くん)から開かれたとき: ?q=選択した文字 で自動検索する
+// 住所らしい文字(市区町村+番地など)なら住所欄、それ以外は現場名欄に入れる
+function looksLikeAddress(t) {
+  return /^(愛知県)?\S{1,6}?(市|郡|区|町|村)/.test(t) && /[0-9０-９]|丁目|番地|字|大字/.test(t);
+}
+(function autoStart() {
+  const p = new URLSearchParams(location.search);
+  const q = (p.get('q') || '').trim(), name = (p.get('name') || '').trim(), addr = (p.get('addr') || '').trim();
+  if (!q && !name && !addr) return;
+  if (q) { if (looksLikeAddress(q)) $('siteAddr').value = q; else $('siteName').value = q; }
+  if (name) $('siteName').value = name;
+  if (addr) $('siteAddr').value = addr;
+  history.replaceState(null, '', location.pathname);   // 再読み込みで二重に検索しないようにURLから消す
+  run();
+})();
 </script>
 </body>
 </html>
