@@ -46,11 +46,10 @@
 <h1>避難場所・ルート図くん<span style="font-size:13px;font-weight:normal;color:#6b7280;margin-left:8px">愛知県・岐阜県・三重県・静岡県</span></h1>
 
 <div class="card">
-  <div class="row">
-    <div><label>現場名</label><input type="text" id="siteName" placeholder="例: ○○ビル / ○○病院"></div>
-    <div><label>住所</label><input type="text" id="siteAddr" placeholder="例: 愛知県名古屋市東区赤塚町28"></div>
+  <div style="margin-bottom:10px">
+    <label>現場名または住所</label><input type="text" id="siteQ" placeholder="例: 名古屋平和ビル / 名古屋市中区栄3-1-1">
   </div>
-  <div class="note" style="margin-bottom:10px">現場名か住所のどちらか一方だけで検索できます(住所の方が位置の精度が高くなります)。最寄りの避難場所(国の指定避難所・指定緊急避難場所と、市町村が独自に指定した津波一時避難場所など)を自動で選びます。</div>
+  <div class="note" style="margin-bottom:10px">現場名か住所を入れてください。入力内容から住所か現場名かを自動で判別します(住所の方が位置の精度が高くなります)。最寄りの避難場所(国の指定避難所・指定緊急避難場所と、市町村が独自に指定した津波一時避難場所など)を自動で選びます。</div>
   <details style="margin-bottom:10px;font-size:12px;color:#6b7280">
     <summary style="cursor:pointer">判定を手動で変える(通常は不要)</summary>
     <select id="override" style="margin-top:6px;max-width:340px">
@@ -451,13 +450,16 @@ function drawMemo() {
 function fmtDist(m) { return m >= 1000 ? (m / 1000).toFixed(2) + ' km' : Math.round(m) + ' m'; }
 
 async function run() {
-  const name = $('siteName').value.trim(), addr = $('siteAddr').value.trim();
-  if (!name && !addr) { setStatus('現場名か住所のどちらかを入力してください'); return; }
+  // 入力欄は1つ。住所らしければ住所として(見つからなければ現場名として)、それ以外は現場名として検索する
+  const q = $('siteQ').value.trim();
+  if (!q) { setStatus('現場名か住所を入力してください'); return; }
+  const isAddr = looksLikeAddress(q);
+  const name = isAddr ? '' : q, addr = isAddr ? q : '';
   const topN = 5, routeN = 3, ov = $('override').value;   // 候補は5件表示、最初に徒歩ルートを調べるのは近い3件
   $('goBtn').disabled = true; $('result').classList.add('hidden'); $('copyMsg').textContent = '';
   try {
     setStatus('現場の位置を検索中…');
-    const g = await geocodeAny(name, addr);
+    const g = isAddr ? await geocodeAny(q, q) : await geocodeAny(q, '');
     const site = { name, address: addr || g.title, lat: g.lat, lon: g.lon };
     setStatus('避難場所データを取得中…');
     let shelters = [];
@@ -684,7 +686,7 @@ function loadExtras() {
   return pref.concat(window.HINAN_REGION || [], window.HINAN_EXTRA || []);
 }
 
-['siteName', 'siteAddr'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') run(); }));
+$('siteQ').addEventListener('keydown', e => { if (e.key === 'Enter') run(); });
 
 // ブックマーク(避難ルート図くん)から開かれたとき: ?q=選択した文字 で自動検索する
 // 住所らしい文字(市区町村+番地など)なら住所欄、それ以外は現場名欄に入れる
@@ -695,9 +697,7 @@ function looksLikeAddress(t) {
   const p = new URLSearchParams(location.search);
   const q = (p.get('q') || '').trim(), name = (p.get('name') || '').trim(), addr = (p.get('addr') || '').trim();
   if (!q && !name && !addr) return;
-  if (q) { if (looksLikeAddress(q)) $('siteAddr').value = q; else $('siteName').value = q; }
-  if (name) $('siteName').value = name;
-  if (addr) $('siteAddr').value = addr;
+  $('siteQ').value = q || addr || name;
   history.replaceState(null, '', location.pathname);   // 再読み込みで二重に検索しないようにURLから消す
   run();
 })();
