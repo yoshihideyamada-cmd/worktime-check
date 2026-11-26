@@ -417,7 +417,7 @@ function fmtDist(m) { return m >= 1000 ? (m / 1000).toFixed(2) + ' km' : Math.ro
 async function run() {
   const name = $('siteName').value.trim(), addr = $('siteAddr').value.trim();
   if (!name && !addr) { setStatus('現場名か住所のどちらかを入力してください'); return; }
-  const topN = 3, ov = $('override').value;
+  const topN = 5, routeN = 3, ov = $('override').value;   // 候補は5件表示、最初に徒歩ルートを調べるのは近い3件
   $('goBtn').disabled = true; $('result').classList.add('hidden'); $('copyMsg').textContent = '';
   try {
     setStatus('現場の位置を検索中…');
@@ -452,10 +452,11 @@ async function run() {
     const cands = shelters.slice(0, topN).map(s => ({ s, route: null }));
     if (mode === 'route' || mode === 'wait') {
       if (mode === 'route') {
-        for (let i = 0; i < cands.length; i++) {
-          setStatus(`徒歩ルートを検索中… (${i + 1}/${cands.length})`);
+        const n = Math.min(routeN, cands.length);
+        for (let i = 0; i < n; i++) {
+          setStatus(`徒歩ルートを検索中… (${i + 1}/${n})`);
           try { cands[i].route = await walkRoute(site, cands[i].s); } catch (e) { cands[i].err = e.message; }
-          if (i < cands.length - 1) await sleep(1100);
+          if (i < n - 1) await sleep(1100);
         }
       }
     }
@@ -505,7 +506,7 @@ function memoText() {
   const r = best.route;
   const min = r ? Math.max(1, Math.round(r.sec / 60)) : Math.max(1, Math.round(best.s.dist / 80));
   const walk = r ? '徒歩約' + min + '分' : '徒歩約' + min + '分(直線距離からの目安)';
-  return `${l1}\n${typeOf(best.s)}${best.s.name}　${walk}\n場所　${best.s.address || '(住所データなし)'}`;
+  return `${l1}\n${typeOf(best.s)}　${best.s.name}　${walk}\n場所　${best.s.address || '(住所データなし)'}`;
 }
 
 function render() {
@@ -523,15 +524,34 @@ function render() {
     : '現場から300m以内に、指定避難所・指定緊急避難場所として登録された施設はありません(データ上、現場自体は避難所として登録されていません)。';
   let rows = '';
   if (cands.length) {
-    rows = cands.map((c, i) => `<tr class="${c === best && mode === 'route' ? 'best' : ''}">
-      <td>${c === best && mode === 'route' ? '★' : ''}${i + 1}</td>
+    const isSel = c => !!best && mode !== 'wait' && (c === best || c.s === best.s);
+    rows = cands.map((c, i) => `<tr class="${isSel(c) ? 'best' : ''}">
+      <td>${isSel(c) ? '★' : ''}${i + 1}</td>
       <td>${esc(c.s.name)}</td><td>${esc(c.s.address)}</td>
       <td>${fmtDist(c.s.dist)}</td>
       <td>${c.route ? fmtDist(c.route.meters) + '(約' + Math.max(1, Math.round(c.route.sec / 60)) + '分)' : (c.err ? '取得失敗' : '—')}</td>
-      <td>${[...c.s.hz].map(esc).join('・')}${c.s.extra || c.s.official ? '<div class="note">' + esc((c.s.official ? '' : (c.s.town ? c.s.town + 'の独自指定 / ' : '市町村の独自指定 / ')) + (c.s.src ? '出典: ' + c.s.src : '') + (c.s.note ? ' / ' + c.s.note : '')) + '</div>' : ''}</td></tr>`).join('');
-  } else rows = '<tr><td colspan="6">約4km以内に該当する避難所データが見つかりませんでした。</td></tr>';
-  $('tbl').innerHTML = '<tr><th>順位</th><th>避難場所</th><th>住所</th><th>直線距離</th><th>徒歩(実距離)</th><th>種別・対応災害</th></tr>' + rows;
+      <td>${[...c.s.hz].map(esc).join('・')}${c.s.extra || c.s.official ? '<div class="note">' + esc((c.s.official ? '' : (c.s.town ? c.s.town + 'の独自指定 / ' : '市町村の独自指定 / ')) + (c.s.src ? '出典: ' + c.s.src : '') + (c.s.note ? ' / ' + c.s.note : '')) + '</div>' : ''}</td>
+      <td>${isSel(c) ? '<span class="badge b-info">表示中</span>' : `<button class="sub pick" data-i="${i}" style="padding:4px 10px;font-size:12px;white-space:nowrap">この場所で作成</button>`}</td></tr>`).join('');
+  } else rows = '<tr><td colspan="7">約4km以内に該当する避難所データが見つかりませんでした。</td></tr>';
+  $('tbl').innerHTML = '<tr><th>順位</th><th>避難場所</th><th>住所</th><th>直線距離</th><th>徒歩(実距離)</th><th>種別・対応災害</th><th>ルート図</th></tr>' + rows;
 }
+// 候補の中から避難先を選び直す(徒歩ルートが未取得ならここで調べる)。地図・メモ・判定文も作り直す
+async function selectCand(i) {
+  const c = state && state.cands[i]; if (!c) return;
+  document.querySelectorAll('#tbl .pick').forEach(b => b.disabled = true);
+  try {
+    if (!c.route) {
+      setStatus('徒歩ルートを検索中…');
+      try { c.route = await walkRoute(state.site, c.s); c.err = null; } catch (e) { c.err = e.message; }
+    }
+    state.best = c; state.mode = 'route'; state.basis = '候補から選択: ' + c.s.name;
+    render(); $('memo').value = memoText();
+    setStatus('地図を描画中…');
+    await drawMap(state.site, state.cands.filter(x => x !== c), c, false); drawMemo();
+    setStatus('完了');
+  } catch (e) { setStatus('エラー: ' + e.message); render(); }
+}
+$('tbl').addEventListener('click', ev => { const b = ev.target.closest && ev.target.closest('.pick'); if (b && !b.disabled) selectCand(+b.dataset.i); });
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 // ---------- コピー・保存 ----------
